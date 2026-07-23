@@ -145,32 +145,33 @@ felixs-tools/
   cli/          # `flx` entrypoint dispatching into each package
   .github/
     workflows/
-      mirror.yml  # auto-mirrors packages/* to standalone repos, see Section 5
+      mirror.yml  # auto-mirrors swarm/logger/brain to standalone repos, see Section 5
 ```
 
 Each package has its own dependency manifest, so someone (or a fresh checkout) can install just one piece without pulling in every dependency — e.g. Brain's tree-sitter dependency shouldn't be required to use Logger.
 
 **Standalone mirror repos** (for anyone who wants just one piece, without cloning the monorepo):
-- `mqnch/01-swarm`
-- `mqnch/02-logger`
-- `mqnch/03-brain`
-- `mqnch/04-router`
+- `mqnch/swarm`
+- `mqnch/logger`
+- `mqnch/brain`
 
-`felixs-tools` is the **only place development happens**. The four mirror repos are read-only outputs, not separate places to commit.
+Router and `common/` are **not mirrored** — they are internal monorepo libraries (Router is a thin LiteLLM wrapper, not a standalone tool).
+
+`felixs-tools` is the **only place development happens**. The three mirror repos are read-only outputs, not separate places to commit.
 
 ## 5. Auto-mirroring setup
 
 **Direction: one-way only, monorepo → mirrors.** This is intentional, not a limitation to fix later. True bidirectional auto-sync (mirror repo changes flowing back into the monorepo automatically) creates a real risk of trigger loops and silent conflict clobbering via force-push. If outside contribution to a mirror repo ever becomes real, the safe version of pulling it back in is a workflow that opens a **pull request** against the monorepo (via `git subtree pull` + a PR-creation step) rather than pushing directly — a human merge breaks any potential loop. This has not been built and should only be built once there's an actual external contributor on one of the mirrors.
 
 **How the forward mirror works** (`.github/workflows/mirror.yml` in `felixs-tools`):
-1. On every push to `main`, `dorny/paths-filter` detects which `packages/*` directories changed.
-2. For each changed package, `git subtree split --prefix=packages/<name>` extracts that directory's history onto a temporary branch.
-3. That branch is force-pushed to the matching mirror repo's `main` branch, using a personal access token (stored as the `MIRROR_TOKEN` secret) with write access to all four mirror repos.
-4. Unchanged packages are skipped entirely — editing `logger/` never touches `brain`'s mirror.
+1. On every push to `main`, `dorny/paths-filter` detects which of `packages/{swarm,logger,brain}` changed.
+2. For each changed mirrored package, `git subtree split --prefix=packages/<name>` extracts that directory's history onto a temporary branch.
+3. That branch is force-pushed to the matching mirror repo's `main` branch, using a personal access token (stored as the `MIRROR_TOKEN` secret) with write access to the three mirror repos (`swarm`, `logger`, `brain`).
+4. Unchanged packages are skipped entirely — editing `logger/` never touches `brain`'s mirror. Only `packages/{swarm,logger,brain}` are mirrored; `router/` and `common/` are ignored by the workflow.
 
 Setup checklist:
 - Create the `packages/{common,router,logger,brain,swarm}` directories with real content (import any existing code from the standalone repos via `git subtree add --prefix=packages/<name> <url> main`, if there's already something there).
-- Create a PAT with write access to the four mirror repos, add it as `MIRROR_TOKEN` in `felixs-tools`'s Actions secrets.
+- Create a PAT with write access to the three mirror repos, add it as `MIRROR_TOKEN` in `felixs-tools`'s Actions secrets.
 - Place the mirror workflow in `.github/workflows/mirror.yml`.
 
 **Consuming a mirror repo — always re-clone, never `git pull`.** Because the mirror workflow force-pushes `main` on every update, it rewrites history rather than appending to it. Anyone (including future-Felix on a different machine) who has already cloned a mirror repo and runs a plain `git pull` will hit a rejected non-fast-forward merge or a confusing divergent-branch error, not a clean update. The correct way to get the latest state of a mirror is to re-clone it (or `git fetch && git reset --hard origin/main`), not pull. This is a real, common gotcha for anyone treating the mirror as a normal git history rather than a snapshot of current state — document this prominently anywhere a mirror repo's README would be read, rather than assuming force-push is "just an implementation detail."
