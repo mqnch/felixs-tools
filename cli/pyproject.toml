@@ -1,7 +1,7 @@
 [project]
 name = "felixs-cli"
 version = "0.1.0"
-description = "flx CLI entrypoint for Felix's Tools"
+description = "felix CLI entrypoint for Felix's Tools"
 requires-python = ">=3.12"
 dependencies = [
     "felixs-common",
@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.scripts]
-flx = "felixs_cli.main:app"
+felix = "felixs_cli.main:app"
 
 [build-system]
 requires = ["hatchling"]

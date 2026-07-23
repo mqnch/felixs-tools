@@ -1,6 +1,6 @@
 # CLI
 
-`flx` entrypoint that dispatches into package commands.
+`felix` entrypoint that dispatches into package commands.
 
 Canonical design context: [docs/sourceoftruth.md](../docs/sourceoftruth.md) (§4, §6).
 
@@ -14,9 +14,9 @@ From the monorepo root:
 
 ```bash
 uv sync --all-packages
-uv run flx --help
-uv run flx logger ingest path/to/app.log --service api
-uv run flx logger search "find payment errors"
+uv run felix --help
+uv run felix logger ingest path/to/app.log --service api
+uv run felix logger search "find payment errors"
 ```
 
 ## Layout

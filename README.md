@@ -14,7 +14,7 @@ packages/
   brain/    # git co-change + structural graph
   swarm/    # preset DAG executor
 presets/    # declarative Swarm pipelines
-cli/        # `flx` entrypoint
+cli/        # `felix` entrypoint
 ```
 
 Each package has its own README:

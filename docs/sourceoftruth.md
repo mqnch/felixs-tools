@@ -142,7 +142,7 @@ felixs-tools/
     brain/      # git co-change/ownership graph, AST parser, graph store, query API
     swarm/      # DAG executor + preset runner
   presets/      # ticket-to-pr.yaml, incident-response.yaml, etc.
-  cli/          # `flx` entrypoint dispatching into each package
+  cli/          # `felix` entrypoint dispatching into each package
   .github/
     workflows/
       mirror.yml  # auto-mirrors swarm/logger/brain to standalone repos, see Section 5
@@ -188,7 +188,7 @@ Python across every package — deliberately one language for one dependency too
 | Brain | `GitPython` (co-change/ownership graph — the first piece built), `tree-sitter` + language grammars (structural extraction, one language first), `tree-sitter-stack-graphs` or its early Python bindings (call/import resolution — only if naive name-based linking proves insufficient, see Section 3.2), `mcp` (MCP server SDK); `watchdog` only if/when incremental updates are actually built | SQLite (adjacency-list tables + recursive CTEs); consider an embedded graph DB (e.g. Kùzu) only if traversal complexity outgrows SQL |
 | Router | `litellm` (SDK mode — backend abstraction and fallback/retry come from this, not hand-written), `diskcache` (exact-match caching) for the thin decision-policy/cache wrapper | `diskcache`'s own store |
 | Swarm | Custom lightweight asyncio-based DAG executor to start; evaluate `LangGraph` once presets get complex enough to justify it; `mcp` (MCP client, for calling GitHub/Jira's MCP servers, and MCP server SDK, for exposing presets as tools) | SQLite (per-run checkpoint state) |
-| common / cli | `pydantic` (shared schemas/config/types), `typer` (the `flx` CLI) | — |
+| common / cli | `pydantic` (shared schemas/config/types), `typer` (the `felix` CLI) | — |
 
 Fine-tuning (Logger's side project only): LoRA on a small base model (e.g. MiniCPM-1B class) via a framework like Unsloth or Axolotl. One-time effort, not a recurring pipeline.
 

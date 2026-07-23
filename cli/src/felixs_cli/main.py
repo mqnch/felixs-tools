@@ -1,4 +1,4 @@
-"""Minimal `flx` entrypoint. Package subcommands land here as they ship."""
+"""Minimal `felix` entrypoint. Package subcommands land here as they ship."""
 
 from pathlib import Path
 

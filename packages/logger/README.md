@@ -31,10 +31,10 @@ uv sync --package felixs-logger
 
 ```bash
 # ingest a log file
-uv run flx logger ingest path/to/app.log --service api
+uv run felix logger ingest path/to/app.log --service api
 
 # natural-language search
-uv run flx logger search "find payment errors" --db .felixs/logger.db
+uv run felix logger search "find payment errors" --db .felixs/logger.db
 ```
 
 ## Library
