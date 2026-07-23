@@ -1,0 +1,18 @@
+[project]
+name = "felixs-tools"
+version = "0.1.0"
+description = "Personal modular CLI toolkit for fullstack, research, and ML work"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["packages/*", "cli"]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
