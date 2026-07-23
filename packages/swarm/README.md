@@ -8,7 +8,7 @@ Mirror (read-only output, later): [mqnch/swarm](https://github.com/mqnch/swarm).
 
 ## Status
 
-**Not built yet.** Package scaffold only. A minimal preset schema placeholder lives in `felixs-common`; the real schema is intentionally undecided until manual Logger/Brain workflows reveal what presets need.
+**Not built yet.** Package scaffold only. A minimal preset schema placeholder lives in `common`; the real schema is intentionally undecided until manual Logger/Brain workflows reveal what presets need.
 
 ## Why last
 
@@ -34,7 +34,7 @@ Swarm orchestrates things that must already exist. Build it only after weeks of 
 ## Install
 
 ```bash
-uv sync --package felixs-swarm
+uv sync --package swarm
 ```
 
 ## Litmus test

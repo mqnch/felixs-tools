@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from felixs_common import RouterRequest, TaskType
-from felixs_router import complete
+from common import RouterRequest, TaskType
+from router import complete
 
-from felixs_logger.index import IndexedEntry, LogIndex
+from logger.index import IndexedEntry, LogIndex
 
 
 class QueryPlanner:

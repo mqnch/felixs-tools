@@ -17,8 +17,8 @@ Not yet the planned LiteLLM + decision-policy + exact-match cache wrapper. That 
 Plain Python library — **not** an MCP server. Brain never depends on it.
 
 ```python
-from felixs_common import RouterRequest, TaskType
-from felixs_router import complete
+from common import RouterRequest, TaskType
+from router import complete
 
 response = complete(
     RouterRequest(
@@ -40,7 +40,7 @@ Deferred: confidence cascading, semantic caching.
 ## Install
 
 ```bash
-uv sync --package felixs-router
+uv sync --package router
 ```
 
 ## Env
@@ -48,4 +48,4 @@ uv sync --package felixs-router
 | Variable | Meaning |
 |---|---|
 | `OLLAMA_HOST` | Ollama base URL (stub) |
-| `FELIXS_ROUTER_MODEL` | Default model name for Ollama (stub) |
+| `FELIX_TOOLS_ROUTER_MODEL` | Default model name for Ollama (stub) |

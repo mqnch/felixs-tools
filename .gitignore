@@ -34,4 +34,4 @@ htmlcov/
 !.env.example
 
 # Local tool state
-.felixs/
+.felix-tools/

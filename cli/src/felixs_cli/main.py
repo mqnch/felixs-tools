@@ -4,7 +4,7 @@ from pathlib import Path
 
 import typer
 
-from felixs_common import LocationId
+from common import LocationId
 
 app = typer.Typer(help="Felix's Tools CLI")
 logger_app = typer.Typer(help="Logger: ingest and search logs")
@@ -19,12 +19,12 @@ def main() -> None:
 @logger_app.command("ingest")
 def logger_ingest(
     path: Path = typer.Argument(..., exists=True, readable=True, dir_okay=False),
-    db: Path = typer.Option(Path(".felixs/logger.db"), "--db", help="SQLite index path"),
+    db: Path = typer.Option(Path(".felix-tools/logger.db"), "--db", help="SQLite index path"),
     service: str | None = typer.Option(None, "--service", help="Optional service label"),
     score: bool = typer.Option(False, "--score", help="Run anomaly scorer while ingesting"),
 ) -> None:
     """Ingest a log file into the structured index."""
-    from felixs_logger import Logger
+    from logger import Logger
 
     location = LocationId(path=str(path), service=service)
     log = Logger(db)
@@ -38,11 +38,11 @@ def logger_ingest(
 @logger_app.command("search")
 def logger_search(
     question: str = typer.Argument(..., help="Natural-language log question"),
-    db: Path = typer.Option(Path(".felixs/logger.db"), "--db", help="SQLite index path"),
+    db: Path = typer.Option(Path(".felix-tools/logger.db"), "--db", help="SQLite index path"),
     limit: int = typer.Option(20, "--limit", min=1),
 ) -> None:
     """Search the index using the query planner."""
-    from felixs_logger import Logger
+    from logger import Logger
 
     log = Logger(db)
     try:

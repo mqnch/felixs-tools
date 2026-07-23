@@ -1,11 +1,11 @@
 [project]
-name = "felixs-logger"
+name = "logger"
 version = "0.1.0"
 description = "Local log search and anomaly detection"
 requires-python = ">=3.12"
 dependencies = [
-    "felixs-common",
-    "felixs-router",
+    "common",
+    "router",
     "drain3>=0.9",
 ]
 
@@ -14,8 +14,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/felixs_logger"]
+packages = ["src/logger"]
 
 [tool.uv.sources]
-felixs-common = { workspace = true }
-felixs-router = { workspace = true }
+common = { workspace = true }
+router = { workspace = true }

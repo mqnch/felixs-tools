@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from felixs_common import LocationId
+from common import LocationId
 
-from felixs_logger.parser import ParsedLine
+from logger.parser import ParsedLine
 
 
 @dataclass(frozen=True)

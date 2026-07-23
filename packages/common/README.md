@@ -23,13 +23,13 @@ Canonical design context: [docs/sourceoftruth.md](../../docs/sourceoftruth.md) (
 From the monorepo root:
 
 ```bash
-uv sync --package felixs-common
+uv sync --package common
 ```
 
 ## Usage
 
 ```python
-from felixs_common import LocationId, TaskType, RouterRequest
+from common import LocationId, TaskType, RouterRequest
 
 loc = LocationId(path="src/app.py", service="api")
 assert loc.key() == "api:src/app.py"

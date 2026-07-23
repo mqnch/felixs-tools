@@ -24,7 +24,7 @@ Fine-tuning a small model is an optional side project, not required for Logger t
 ## Install
 
 ```bash
-uv sync --package felixs-logger
+uv sync --package logger
 ```
 
 ## CLI
@@ -34,16 +34,16 @@ uv sync --package felixs-logger
 uv run felix logger ingest path/to/app.log --service api
 
 # natural-language search
-uv run felix logger search "find payment errors" --db .felixs/logger.db
+uv run felix logger search "find payment errors" --db .felix-tools/logger.db
 ```
 
 ## Library
 
 ```python
-from felixs_common import LocationId
-from felixs_logger import Logger
+from common import LocationId
+from logger import Logger
 
-log = Logger(".felixs/logger.db")
+log = Logger(".felix-tools/logger.db")
 log.ingest_line(
     "ERROR payment failed order=42",
     location=LocationId(path="svc/api.log", service="api"),

@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from felixs_common import LocationId
-from felixs_logger import Logger
+from common import LocationId
+from logger import Logger
 
 
 def test_ingest_and_search(tmp_path: Path) -> None:

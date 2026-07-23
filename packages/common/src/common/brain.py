@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from felixs_common.location import LocationId
+from common.location import LocationId
 
 
 class BrainNodeKind(StrEnum):

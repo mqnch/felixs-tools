@@ -5,12 +5,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from felixs_common import LocationId
+from common import LocationId
 
-from felixs_logger.index import IndexedEntry, LogIndex
-from felixs_logger.parser import LogParser, ParsedLine
-from felixs_logger.planner import QueryPlanner
-from felixs_logger.scorer import AnomalyScore, AnomalyScorer
+from logger.index import IndexedEntry, LogIndex
+from logger.parser import LogParser, ParsedLine
+from logger.planner import QueryPlanner
+from logger.scorer import AnomalyScore, AnomalyScorer
 
 _SEVERITY_RE = re.compile(
     r"\b(DEBUG|INFO|WARN(?:ING)?|ERROR|CRITICAL|FATAL)\b",

@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from felixs_common import RouterRequest, TaskType
-from felixs_router import complete
+from common import RouterRequest, TaskType
+from router import complete
 
-from felixs_logger.index import LogIndex
-from felixs_logger.parser import ParsedLine
+from logger.index import LogIndex
+from logger.parser import ParsedLine
 
 
 @dataclass(frozen=True)

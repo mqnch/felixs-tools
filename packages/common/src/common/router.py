@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from felixs_common.tasks import TaskType
+from common.tasks import TaskType
 
 
 class RouterRequest(BaseModel):

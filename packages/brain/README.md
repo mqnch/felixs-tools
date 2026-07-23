@@ -8,7 +8,7 @@ Mirror (read-only output, later): [mqnch/brain](https://github.com/mqnch/brain).
 
 ## Status
 
-**Not built yet.** Package scaffold only. Result shapes live in `felixs-common` (`BrainQueryResult`, etc.).
+**Not built yet.** Package scaffold only. Result shapes live in `common` (`BrainQueryResult`, etc.).
 
 Build Brain only after Logger has been used for real work.
 
@@ -28,12 +28,12 @@ Existing AST-graph tools don't model git co-change history or ownership. That la
 
 - CLI and Python library from day one
 - MCP server only on demonstrated need (external agent host)
-- Nodes keyed by shared `LocationId` from `felixs-common` so Swarm can join Logger anomalies to blast radius
+- Nodes keyed by shared `LocationId` from `common` so Swarm can join Logger anomalies to blast radius
 
 ## Install
 
 ```bash
-uv sync --package felixs-brain
+uv sync --package brain
 ```
 
 ## Deferred

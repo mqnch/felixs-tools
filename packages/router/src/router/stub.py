@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from felixs_common import RouterRequest, RouterResponse, TaskType
+from common import RouterRequest, RouterResponse, TaskType
 
 
 def complete(request: RouterRequest) -> RouterResponse:
@@ -18,7 +18,7 @@ def complete(request: RouterRequest) -> RouterResponse:
     Tries a local Ollama HTTP endpoint when configured; otherwise returns a
     deterministic heuristic response so callers remain usable offline.
     """
-    model = request.model or os.environ.get("FELIXS_ROUTER_MODEL", "llama3.2")
+    model = request.model or os.environ.get("FELIX_TOOLS_ROUTER_MODEL", "llama3.2")
     base = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
 
     try:

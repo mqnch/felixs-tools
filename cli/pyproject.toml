@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "felix CLI entrypoint for Felix's Tools"
 requires-python = ">=3.12"
 dependencies = [
-    "felixs-common",
-    "felixs-logger",
+    "common",
+    "logger",
     "typer>=0.12",
 ]
 
@@ -20,5 +20,5 @@ build-backend = "hatchling.build"
 packages = ["src/felixs_cli"]
 
 [tool.uv.sources]
-felixs-common = { workspace = true }
-felixs-logger = { workspace = true }
+common = { workspace = true }
+logger = { workspace = true }
