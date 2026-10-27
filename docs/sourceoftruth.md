@@ -51,6 +51,20 @@ Independence specifics:
 
 **Where MCP fits and where it doesn't:** Swarm calls Brain and Logger as direct Python imports internally (same language, lowest latency) rather than routing through MCP between packages that already live in the same monorepo — MCP is for *external* consumption of a package, not internal calls between packages that are already Python function calls away from each other. The one place Swarm is itself an MCP client is for third-party systems that already ship their own MCP servers (GitHub, Atlassian/Jira) — a preset step calls those directly over MCP instead of hand-written API integration code. MCP is also not a fit for high-throughput internal loops: Logger's anomaly scorer, which scores every incoming log line, stays an internal process rather than going through MCP per line — MCP is for discrete request/response tool calls, not a data pipeline.
 
+### 2.6 Documentation discipline
+
+This document is deliberately written so a fresh reader — including a fresh AI assistant with no conversation history — can pick the project up cold. That property decays silently unless work done *after* it was written is captured too, and it decays fastest in exactly the two places this project's design rules depend on: what was deliberately left out, and why an alternative was rejected.
+
+Three append-only records exist alongside this one, each with a different job:
+
+- **`docs/slices/`** — one entry per thin vertical cut that shipped something usable. Its most important field is **what the slice deliberately did not include**. Section 2.2 and Section 9 mean this project is largely defined by things not built yet; without the cut lines written down at the time, deliberate deferrals become indistinguishable from oversights within a few months.
+- **`docs/decisions/`** — one record per choice with a real rejected alternative, capturing the rejected option, why, and the concrete signal that would justify revisiting it. Decisions already made are recorded inline in this document (Sections 3.2, 3.3, 5, 6); the directory covers everything decided from here on. Without it, settled questions get silently re-litigated — the LiteLLM-vs-build-it and fork-vs-in-house analyses in Section 3 cost real thinking and should only be paid for once.
+- **`docs/friction.md`** — dated notes when a bare-bones piece actually hurt (Section 2.2). This is the evidence that unlocks generalizing anything in Section 9.
+
+**Documentation ships with the change, not after it.** Reasoning is cheap to write down while it's still in your head and expensive to reconstruct later; a batched "docs pass" reconstructs it badly or skips it. `CLAUDE.md` carries the operational definition of done.
+
+**This document stays canonical and current** — it describes the project as intended, not as a history. Slices and decisions are the history. When a slice or decision contradicts this file, this file is out of date and should be edited; scope, build-order, and non-goal changes belong here, not only in the log.
+
 ## 3. The four components
 
 ### 3.1 Logger
@@ -65,7 +79,15 @@ Independence specifics:
 
 **Where the model does and doesn't fit:** only the query planner and anomaly scorer use a trained model. Parsing and indexing are classical, model-free components. This keeps the "delete the LLM, what's left" ratio high.
 
-**Fine-tuning status:** the original motivation for post-training a small model here was to have a concrete project for learning RL-based post-training (specifically to get hands-on with PRIME-RL as a field). This is explicitly a **side project decoupled from Logger's core success** — Logger's core function should work fine against any decent stock small model (e.g. MiniCPM-1B or similar) with good prompting, with no fine-tuning required. When a better base model ships, the plan is to swap to it, not retrain — retraining is not part of the maintenance commitment for this project.
+**Post-training status — this is now the primary active workstream.** Originally the motivation for post-training a small model here was to have a concrete project for learning RL-based post-training (specifically PRIME-RL), framed as a side project decoupled from Logger's core success. That priority is inverted as of 2026-08-15: post-training the **query planner** is the project's main near-term deliverable, as a recruiting artifact, and Brain is deferred behind it. See decision [0001](decisions/0001-post-trained-planner-is-primary-deliverable.md) and the slice roadmap in [docs/slices](slices/README.md).
+
+The approach: the planner emits a structured query plan, so correctness is **computable by execution** — run the emitted plan against the index, compare the returned row IDs to a gold set. That gives a verifiable reward with no human labeling and no LLM judge, which is what makes RL the right tool here rather than a decoration (decision [0002](decisions/0002-post-train-the-query-planner.md)). Gold data is generated *backwards* — sample a plan, execute it, then have a frontier model write the question a human would have asked — so that a later "small model matches frontier" comparison is not circular (decision [0004](decisions/0004-reverse-generated-gold-over-loghub.md)).
+
+**The DSL is frozen** as of slice [002](slices/002-extended-query-dsl.md), at `common.SCHEMA_VERSION` = `1.0.0`. It lives in `packages/common/src/common/query_plan.py` (decision [0009](decisions/0009-plan-schema-in-common.md)); validation and execution live in `logger`. A query filter is one recursive boolean expression over term / severity / template / location / time-range leaves (decision [0008](decisions/0008-recursive-boolean-filter-tree.md)), optionally aggregated. Changing any of that is a retrain, not an edit.
+
+**The invariant that survives the reversal:** Logger's core function must still work against a stock small model with good prompting, with no fine-tuned checkpoint required. The Router stub's fallback path stays. A stalled or disappointing training run should degrade the artifact, never break the tool.
+
+What is no longer true: "retraining is not part of the maintenance commitment." This project now retrains by design. The related principle — that a better *base* model should be swapped in rather than worked around — still holds, and now simply means rerunning the pipeline.
 
 ### 3.2 Brain
 
@@ -141,6 +163,9 @@ felixs-tools/
     logger/     # parser, index, query planner, anomaly scorer
     brain/      # git co-change/ownership graph, AST parser, graph store, query API
     swarm/      # DAG executor + preset runner
+    planner-rl/ # post-training the query planner: data generation, reward,
+                # SFT/GRPO training, eval harness. Depends on logger and common;
+                # mirrored to a standalone public repo — see Section 5
   presets/      # ticket-to-pr.yaml, incident-response.yaml, etc.
   cli/          # `felix` entrypoint dispatching into each package
   .github/
@@ -154,6 +179,7 @@ Each package has its own dependency manifest, so someone (or a fresh checkout) c
 - `mqnch/swarm`
 - `mqnch/logger`
 - `mqnch/brain`
+- `mqnch/planner-rl` — **not yet created.** The public face of the post-training workstream (decision [0007](decisions/0007-planner-rl-package-placement.md)); unlike the others this one is written to be read by strangers evaluating the work, so its README must lead with results and a reproducible eval command.
 
 Router and `common/` are **not mirrored** — they are internal monorepo libraries (Router is a thin LiteLLM wrapper, not a standalone tool).
 
@@ -190,7 +216,18 @@ Python across every package — deliberately one language for one dependency too
 | Swarm | Custom lightweight asyncio-based DAG executor to start; evaluate `LangGraph` once presets get complex enough to justify it; `mcp` (MCP client, for calling GitHub/Jira's MCP servers, and MCP server SDK, for exposing presets as tools) | SQLite (per-run checkpoint state) |
 | common / cli | `pydantic` (shared schemas/config/types), `typer` (the `felix` CLI) | — |
 
-Fine-tuning (Logger's side project only): LoRA on a small base model (e.g. MiniCPM-1B class) via a framework like Unsloth or Axolotl. One-time effort, not a recurring pipeline.
+**Post-training stack** (`planner-rl` — now the primary workstream, Section 3.1):
+
+| Concern | Choice |
+|---|---|
+| Base models | Qwen3.5 **0.8B** (fast debug loop), **2B** (headline), **4B** (upper scale point) — overrides the earlier "MiniCPM-1B class," see decision [0006](decisions/0006-qwen3-base-models.md) |
+| Method | SFT baseline (LoRA), then **GRPO** with execution-verified reward; **PRIME** implicit process reward as an ablation — decision [0005](decisions/0005-grpo-primary-prime-ablation.md) |
+| Reward | Format validity + execution success + retrieved-set F1 vs. gold row IDs − efficiency penalty (query count, rows scanned). Rows-scanned rather than wall-clock, since wall-clock on shared hardware is noisy and noisy reward destabilizes RL |
+| Rollouts | vLLM, roughly 1 GPU serving and 3 training on a 4×3090 node. **Open risk:** Qwen3.5 is reported unsupported on vLLM 0.16.0 — slice 006 must pin and verify a working version before slice 008 depends on it. Fallback is Unsloth's own inference path for GRPO rollouts, at some throughput cost |
+| Corpus | LogHub public datasets — public and citable so the benchmark is reproducible by a stranger; verify per-dataset licensing before publishing derived data |
+| Hardware | WATcloud SLURM. Best fit `trpro-slurm1` (4× RTX 3090, 24 GB each). Consumer 3090s have driver-level P2P disabled, so multi-GPU collectives fall back to host staging — a reason to prefer single-node LoRA over sharded full-finetune at this scale |
+
+Every training run must checkpoint and resume from the first slice onward — SLURM time limits make this a correctness requirement, not an optimization.
 
 **Packaging caveat:** Python end-to-end is the fastest path to build and iterate, but it means anyone else installing one of these tools needs a Python environment, not a single binary. If "usable by other solo devs" becomes a real priority later, the CLI boundary is the piece most worth reconsidering — a thin compiled binary (Go/Rust) that talks to a local server, keeping the Python underneath for model/orchestration logic. Not a current-phase concern.
 
@@ -198,6 +235,10 @@ Fine-tuning (Logger's side project only): LoRA on a small base model (e.g. MiniC
 
 1. **`common/` types only.** Task-type taxonomy, Router request/response shape, preset schema, Brain query result shape, and a **shared location/entity identifier** — a canonical way to refer to "this part of the codebase" (file path, optionally mapped to a service/component label) that both Logger and Brain index against. Without this, incident-response and code-review presets have no reliable way to join "Logger's anomaly happened here" with "Brain's blast radius for here" — this gap only shows up once Swarm needs to correlate the two, so it belongs in `common/` from the start rather than being discovered mid-build. No logic beyond this — this is the shared contract everything else is built against, so it needs to exist before any package does.
 2. **Logger, standalone.** Build against a stock small model with good prompting first — no fine-tuning yet. Router is a stub (pass-through, no caching/cascading). Use it for real daily log-search tasks before adding anything further.
+2a. **Post-training the query planner** — inserted here as of 2026-08-15 and currently the **active** step, ahead of Brain (decision [0001](decisions/0001-post-trained-planner-is-primary-deliverable.md)). Extend and freeze the query DSL, ingest LogHub corpora, reverse-generate a dataset, build the eval harness and measure stock baselines, then SFT → GRPO → PRIME ablation → cost curve → ship. Sliced in detail in [docs/slices](slices/README.md), slices 002–012.
+
+   The ordering inside that workstream has one non-obvious constraint worth stating here: **the eval harness and stock baselines come before any training.** If a stock model already scores near the ceiling on the DSL, the RL result is flat and the DSL must be hardened first — and that is far cheaper to discover before GPU time is spent than after.
+
 3. **Brain, standalone, in its own internal order** (Section 3.2): git co-change/ownership graph first, then single-language structural extraction with full-rebuild-per-run, then naive name-based call linking. Reuses the Router stub and storage patterns as a consistency check on whether the `common/` types were actually right.
 4. **Router, made real.** Now a thin wrapper around `litellm` rather than a from-scratch package (Section 3.3) — this step is just writing the decision policy and cache once Logger and Brain have generated real call patterns to route between, not designing a backend abstraction.
 5. **Swarm, last, deliberately.** Only after weeks of manually running Logger/Brain workflows by hand — e.g. manually stepping through an incident response — so the preset schema reflects real repeated steps rather than a guessed abstraction.
@@ -209,7 +250,8 @@ Distinguishing forced upkeep from voluntary growth, since "used forever" makes t
 
 | Surface | Maintenance reality |
 |---|---|
-| Logger's fine-tuned model | None — it's frozen by design. Only degrades if the query schema it was trained against changes later, which is a self-inflicted, optional risk |
+| Logger's post-trained planner | Frozen once trained. The real exposure is that it is trained against a **specific frozen DSL version** — changing the DSL invalidates the checkpoint and the dataset together, so DSL changes after the freeze are a retrain, not an edit (Section 3.1, decision [0003](decisions/0003-extend-the-query-dsl.md)) |
+| `planner-rl` training pipeline | Voluntary to rerun, but it must *stay* rerunnable — that is the whole value over a one-off training script. Pinned deps and a reproducible corpus manifest are the maintenance cost |
 | Logger's parser/index, Brain's core graph logic, Router's policy/cache, Swarm's executor | Own code — write-once if kept simple, no external forcing function |
 | `drain3`, SQLite, tree-sitter grammars | Mechanical dependency bumps, low effort, automatable (e.g. Dependabot) |
 | Provider API changes (now inherited via `litellm`) | Still the one real exposed seam to fast external change, but `litellm` absorbs most of the adapter-tracking work upstream rather than this project maintaining hand-written adapters |

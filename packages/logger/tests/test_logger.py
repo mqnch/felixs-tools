@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from common import LocationId
+from common import LocationId, Query, QueryPlan, SeverityNode
 from logger import Logger
 
 
@@ -23,9 +23,10 @@ def test_ingest_and_search(tmp_path: Path) -> None:
             location=location,
         )
 
-        structured = log.index.query(severity="ERROR", limit=10)
-        assert len(structured) >= 2
-        assert all(e.location_key == "api:svc/api.log" for e in structured)
+        plan = QueryPlan(queries=[Query(where=SeverityNode(value="ERROR"), limit=10)])
+        structured = log.execute_plan(plan)
+        assert len(structured.rows) >= 2
+        assert all(e.location_key == "api:svc/api.log" for e in structured.rows)
 
         results = log.search("find payment errors")
         assert results

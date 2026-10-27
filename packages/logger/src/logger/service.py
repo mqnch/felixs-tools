@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from common import LocationId
+from common import LocationId, QueryPlan
 
-from logger.index import IndexedEntry, LogIndex
+from logger.index import IndexedEntry, LogIndex, PlanResult
 from logger.parser import LogParser, ParsedLine
 from logger.planner import QueryPlanner
 from logger.scorer import AnomalyScore, AnomalyScorer
@@ -67,6 +67,10 @@ class Logger:
 
     def search(self, question: str) -> list[IndexedEntry]:
         return self.planner.search(question)
+
+    def execute_plan(self, plan: QueryPlan) -> PlanResult:
+        """Run an already-built plan. Validate it first if it came from a model."""
+        return self.index.execute(plan)
 
 
 def _guess_severity(line: str) -> str | None:

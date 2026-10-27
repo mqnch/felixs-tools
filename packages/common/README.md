@@ -17,6 +17,7 @@ Canonical design context: [docs/sourceoftruth.md](../../docs/sourceoftruth.md) (
 | `router` | `RouterRequest` / `RouterResponse` shapes |
 | `brain` | Coarse `BrainQueryResult` / node / edge shapes (exact query language still open) |
 | `preset` | Minimal `Preset` / `PresetStep` placeholder (full schema deferred until real workflows) |
+| `query_plan` | **Frozen** Logger query DSL — `SCHEMA_VERSION`, `QueryPlan` / `Query` / filter nodes / `Aggregate`, and the `PlanErrorCode` / `PlanError` / `PlanValidation` shapes |
 
 ## Install
 
@@ -43,5 +44,6 @@ req = RouterRequest(
 ## Rules
 
 - Add shared contracts here before duplicating shapes in other packages.
-- Do not put business logic in this package.
+- Do not put business logic in this package. Declarative field constraints are fine; rules with judgment in them belong to the owning package ([decision 0009](../../docs/decisions/0009-plan-schema-in-common.md)).
 - Prefer extending existing models over inventing parallel ones.
+- **`query_plan` is a frozen training contract.** `SCHEMA_VERSION` is bumped, never silently edited — a change invalidates Logger's dataset and every trained checkpoint together ([decision 0002](../../docs/decisions/0002-post-train-the-query-planner.md)).
