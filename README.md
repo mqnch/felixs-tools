@@ -37,6 +37,7 @@ Each package has its own README:
 - [Logger](packages/logger/README.md)
 - [Brain](packages/brain/README.md)
 - [Swarm](packages/swarm/README.md)
+- [planner-rl](packages/planner-rl/README.md)
 - [CLI](cli/README.md)
 
 ## Repos

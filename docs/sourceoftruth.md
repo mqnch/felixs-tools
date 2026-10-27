@@ -124,7 +124,7 @@ What is no longer true: "retraining is not part of the maintenance commitment." 
 2. **Cache** — exact-match caching keyed on a hash of the normalized input, layered on top of the LiteLLM SDK call so repeated calls skip the model entirely. Semantic (similarity-based) caching is explicitly deferred.
 3. **Backend abstraction and fallback/retry** — provided by `litellm` itself, not written in-house.
 
-**Callers:** Logger's query planner and anomaly scorer, and Swarm's LLM reasoning steps in presets, call through this thin wrapper. Brain does not call through it at all — Brain has no model dependency (Section 3.2).
+**Callers:** Logger's query planner and anomaly scorer, and Swarm's LLM reasoning steps in presets, call through this thin wrapper. Brain does not call through it at all — Brain has no model dependency (Section 3.2). One documented exception: `planner-rl`'s offline dataset question authoring calls the Anthropic SDK directly, because its manifest must pin the exact model per question and the Router stub can silently fall back to a heuristic ([decision 0014](decisions/0014-question-authoring-bypasses-router.md)).
 
 **Interface:** Router is a plain internal Python library, not an MCP server (see Section 2.5) — it sits underneath model calls rather than being a tool an agent calls mid-conversation.
 

@@ -45,10 +45,10 @@ Per decision [0001](../decisions/0001-post-trained-planner-is-primary-deliverabl
 |---|---|---|---|
 | [001](001-common-logger-router-stub.md) | Common types, Logger bare bones, Router stub, `felix` CLI | Shipped | 2026-07-23, backfilled |
 | [002](002-extended-query-dsl.md) | Extended query DSL, validator, executor | Shipped | 2026-08-15. DSL frozen at `SCHEMA_VERSION` 1.0.0 |
-| [003](003-loghub-corpus-ingest.md) | LogHub corpus ingestion | Shipped | 2026-08-15. CLI deliberately not wired |
-| [004](004-reverse-generated-dataset.md) | Reverse-generated training dataset | Planned | Highest-risk slice |
+| [003](003-loghub-corpus-ingest.md) | LogHub corpus ingestion | Shipped | 2026-08-15. CLI wired as `felix logger ingest-corpus` |
+| [004](004-reverse-generated-dataset.md) | Reverse-generated training dataset | In progress | 2026-10-27. Pipeline built and tested; real-corpus run + manual audit pending |
 | [005](005-eval-harness-and-baselines.md) | Eval harness, stock baselines, difficulty gate | Planned | **Go/no-go before any GPU spend** |
-| 006 | SLURM training scaffold — sbatch, HF cache staging, checkpoint/resume, run logging | Planned | Parallel with 002–005; every training slice depends on it |
+| [006](006-slurm-training-scaffold.md) | SLURM training scaffold — sbatch, HF cache staging, checkpoint/resume, run logging | In progress | 2026-10-27. Built and tested locally; cluster smoke run + vLLM pin pending |
 | 007 | SFT baseline, all three sizes, honestly tuned with a real sweep | Planned | A weak baseline is the fastest way to lose the RL claim |
 | 008 | GRPO with execution reward — **the headline result** | Planned | vLLM rollouts + trainer on one 4×3090 node |
 | 009 | PRIME implicit process-reward ablation | Planned | Negative result is publishable and expected to be possible |
