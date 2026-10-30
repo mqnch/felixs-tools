@@ -51,6 +51,20 @@ DEFAULT_MIX: dict[str, float] = {
 
 _WINDOWS = [timedelta(minutes=10), timedelta(hours=1), timedelta(hours=6), timedelta(days=1)]
 
+# Function words make term leaves nobody would search for ("such", "the"); the
+# first pilot audit had questions built around TERM=such.
+_TERM_STOP = frozenset(
+    "a an the and or of to in on at for from with without by is are was were be been "
+    "has have had not no but if then than so such as it its this that these those there "
+    "here into onto over under up down out off all any some each per via can could will "
+    "would should may might must do does did done being about".split()
+)
+
+
+def term_words(template: str) -> list[str]:
+    """Literal template words worth searching for: no function words, nothing under 3 chars."""
+    return [w for w in literal_words(template) if len(w) >= 3 and w.lower() not in _TERM_STOP]
+
 
 @dataclass(frozen=True)
 class SampledPlan:
@@ -89,7 +103,7 @@ class PlanSampler:
         self.rng.shuffle(options)
         for kind in options:
             if kind == "term":
-                words = literal_words(anchor.template)
+                words = term_words(self.view.template_text(anchor.template_id))
                 if words:
                     return TermNode(value=self.rng.choice(words))
             elif kind == "severity" and anchor.severity:
@@ -119,7 +133,7 @@ class PlanSampler:
                     return TemplateIdNode(value=self.rng.choice(pool))
             elif kind == "term":
                 other = self.view.anchor(self.rng)
-                words = [w for w in literal_words(other.template) if w not in anchor.raw]
+                words = [w for w in term_words(self.view.template_text(other.template_id)) if w not in anchor.raw]
                 if words:
                     return TermNode(value=self.rng.choice(words))
         return None

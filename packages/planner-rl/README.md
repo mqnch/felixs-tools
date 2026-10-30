@@ -35,7 +35,7 @@ Mirror (read-only output, not yet created): `mqnch/planner-rl`. Because the mirr
 
 | Command | What it does |
 |---|---|
-| `planner-rl gen-data --corpus DB --n N --out DIR [--dry-run] [--seed S] [--model M]` | Build a dataset. `--dry-run` makes no API calls |
+| `planner-rl gen-data --corpus DB --n N --out DIR [--dry-run] [--seed S] [--provider anthropic\|openrouter] [--model M]` | Build a dataset. `--dry-run` makes no API calls. `--provider openrouter` defaults to `anthropic/claude-haiku-5.5` ([0016](../../docs/decisions/0016-openrouter-as-a-second-authoring-provider.md)) |
 | `planner-rl audit-data DIR [--sample 100]` / `--score SHEET` | Write or score the manual-audit sheet |
 | `planner-rl slurm render --name --run-id --out [--gpus --partition --time --hf-cache --nodelist] [--submit] -- CMD...` | Render (and, only with `--submit`, submit) an sbatch script |
 | `planner-rl slurm smoke --run-id ID` | Toy checkpoint/resume job |
@@ -46,7 +46,8 @@ Mirror (read-only output, not yet created): `mqnch/planner-rl`. Because the mirr
 
 | Variable | Used by |
 |---|---|
-| `ANTHROPIC_API_KEY` (or an `ant auth login` profile) | `gen-data` without `--dry-run` |
+| `ANTHROPIC_API_KEY` (or an `ant auth login` profile) | `gen-data --provider anthropic` (the default) without `--dry-run` |
+| `OPENROUTER_API_KEY` | `gen-data --provider openrouter` |
 | `HF_HOME`, `HF_HUB_CACHE`, `HF_HUB_OFFLINE` | Set by rendered sbatch scripts when `--hf-cache` is given |
 | `PLANNER_RL_RUN_ID` | Exported by rendered sbatch scripts |
 

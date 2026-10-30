@@ -97,10 +97,13 @@ def _ids(index: LogIndex, query: Query, now: datetime) -> set[int]:
 
 
 def _operator_redundancy(index: LogIndex, query: Query, now: datetime) -> str | None:
-    """Every `not` must exclude something and every `or` branch must add something.
+    """Every `and` child must narrow, every `not` must exclude something and
+    every `or` branch must add something.
 
     Otherwise the plan carries an operator that does no work, and the question
     written for it will not mention it — teaching the planner to emit noise.
+    The first pilot audit found `term=state AND <"wait state enable" template>`:
+    the term is implied by the template, so the leaf did nothing.
     """
     where = query.where
     if not isinstance(where, (AndNode, OrNode)):
@@ -108,6 +111,11 @@ def _operator_redundancy(index: LogIndex, query: Query, now: datetime) -> str | 
     full = _ids(index, query, now)
     nodes = where.of if isinstance(where, AndNode) else [where]
     for child in nodes:
+        if isinstance(where, AndNode) and not isinstance(child, (NotNode, OrNode)):
+            rest = [c for c in where.of if c is not child]
+            relaxed = query.model_copy(update={"where": AndNode(of=rest) if len(rest) > 1 else rest[0]})
+            if _ids(index, relaxed, now) == full:
+                return "noop_conjunct"
         if isinstance(child, NotNode):
             rest = [c for c in where.of if c is not child]
             relaxed = query.model_copy(update={"where": AndNode(of=rest) if rest else None})

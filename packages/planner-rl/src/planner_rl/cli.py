@@ -26,13 +26,26 @@ def gen_data(
     out: Path = typer.Option(..., "--out", help="Output directory"),
     seed: int | None = typer.Option(None, "--seed"),
     model: str | None = typer.Option(None, "--model", help="Question-authoring model"),
+    provider: str = typer.Option("anthropic", "--provider", help="anthropic | openrouter"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Plans and gold only; no API calls, no questions"),
 ) -> None:
     """Reverse-generate (question, gold plan, gold rows) triples with train/val/test splits."""
-    from planner_rl.data.author import DEFAULT_MODEL, AnthropicAuthor
+    from planner_rl.data.author import (
+        DEFAULT_MODEL,
+        DEFAULT_OPENROUTER_MODEL,
+        AnthropicAuthor,
+        OpenRouterAuthor,
+    )
     from planner_rl.data.pipeline import DEFAULT_SEED, generate_dataset
 
-    author = None if dry_run else AnthropicAuthor(model or DEFAULT_MODEL)
+    if dry_run:
+        author = None
+    elif provider == "anthropic":
+        author = AnthropicAuthor(model or DEFAULT_MODEL)
+    elif provider == "openrouter":
+        author = OpenRouterAuthor(model or DEFAULT_OPENROUTER_MODEL)
+    else:
+        raise typer.BadParameter(f"unknown provider {provider!r}", param_hint="--provider")
     last: dict[str, int] = {}
 
     def progress(split: str, done: int, target: int) -> None:

@@ -20,11 +20,14 @@ from planner_rl.data.author import (
     AuthoredQuestion,
     AuthorRequest,
     AuthorResult,
+    OpenRouterAuthor,
+    author_view_of_plan,
+    render_user_prompt,
 )
 from planner_rl.data.corpus import SPLITS, CorpusView, build_splits, literal_words
 from planner_rl.data.gold import compute_gold
 from planner_rl.data.pipeline import generate_dataset
-from planner_rl.data.sampler import DEFAULT_MIX, PlanSampler
+from planner_rl.data.sampler import DEFAULT_MIX, PlanSampler, term_words
 
 
 @pytest.fixture()
@@ -100,6 +103,54 @@ def test_gold_rejects_a_negation_that_excludes_nothing(splits):
     finally:
         index.close()
     assert gold is None and reason == "noop_negation"
+
+
+def test_gold_rejects_an_and_child_that_narrows_nothing(splits):
+    out, _ = splits
+    index = LogIndex(out / "train.db")
+    try:
+        # Every PacketResponder line is INFO, so `and INFO` does no work.
+        plan = QueryPlan(
+            queries=[
+                Query(where=AndNode(of=[TermNode(value="PacketResponder"), SeverityNode(value="INFO")]), limit=1000)
+            ]
+        )
+        gold, reason = compute_gold(
+            index, plan, now=index.reference_now(), row_count=index.row_count(), max_fraction=1.0
+        )
+    finally:
+        index.close()
+    assert gold is None and reason == "noop_conjunct"
+
+
+def test_template_text_is_the_most_general_not_the_earliest(tmp_path):
+    """Drain generalizes clusters over time; early rows keep their literal text."""
+    import sqlite3
+
+    db = tmp_path / "t.db"
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE log_entries (id INTEGER PRIMARY KEY, raw TEXT, template TEXT, template_id INTEGER,"
+        " severity TEXT, timestamp TEXT, location_key TEXT)"
+    )
+    conn.executemany(
+        "INSERT INTO log_entries VALUES (?, ?, ?, 3, 'INFO', '2005-06-01T00:00:00', 'K:x.log')",
+        [
+            (1, "1534 double-hummer alignment exceptions", "1534 double-hummer alignment exceptions"),
+            (2, "12 double-hummer alignment exceptions", "<*> double-hummer alignment exceptions"),
+        ],
+    )
+    conn.commit()
+    conn.close()
+    view = CorpusView(db)
+    try:
+        assert view.template_text(3) == "<*> double-hummer alignment exceptions"
+    finally:
+        view.close()
+
+
+def test_term_words_drop_function_words_and_short_tokens():
+    assert term_words("Received block <*> of size <*> such as it is from <*>") == ["Received", "block", "size"]
 
 
 def test_gold_rejects_empty_and_overbroad_results(splits):
@@ -248,6 +299,42 @@ def _request() -> AuthorRequest:
     )
 
 
+def test_prompt_spells_out_locations_and_window_kinds():
+    plan = {
+        "version": "1.0.0",
+        "queries": [
+            {
+                "where": {
+                    "op": "and",
+                    "of": [
+                        {"op": "location_key", "value": "nova.compute.manager:nova-compute.log"},
+                        {"op": "time_range", "since": "2017-05-16T17:38:28+00:00", "until": "2017-05-16T17:48:28+00:00"},
+                    ],
+                }
+            },
+            {"where": {"op": "time_range", "since": "-6h"}},
+        ],
+    }
+    request = AuthorRequest(
+        dataset="openstack", plan_json=json.dumps(plan), reference_now=None,
+        sample_rows=[], template_texts={}, groups=[],
+    )
+    prompt = render_user_prompt(request)
+    assert "- component nova.compute.manager in file nova-compute.log" in prompt
+    assert "- absolute: since 2017-05-16T17:38:28+00:00 until 2017-05-16T17:48:28+00:00" in prompt
+    assert "- relative to now: since -6h until now" in prompt
+
+
+def test_prompt_hides_aggregate_group_keys():
+    request = AuthorRequest(
+        dataset="bgl", plan_json='{"queries": []}', reference_now=None, sample_rows=[], template_texts={},
+        groups=[{"key": {"location_key": "KERNEL:BGL.log"}, "count": 56}],
+    )
+    prompt = render_user_prompt(request)
+    assert "KERNEL" not in prompt
+    assert "returned 1 group(s)" in prompt
+
+
 def test_anthropic_author_returns_parsed_question():
     messages = _FakeMessages(
         SimpleNamespace(
@@ -276,6 +363,124 @@ def test_anthropic_author_returns_parsed_question():
 def test_anthropic_author_maps_failures_to_reasons(response, reason):
     author = AnthropicAuthor(client=SimpleNamespace(messages=_FakeMessages(response)))
     assert author.author(_request()).reason == reason
+
+
+def test_author_view_hides_sampler_defaults_but_keeps_real_constraints():
+    plan = {
+        "version": "1.0.0",
+        "queries": [
+            {"limit": 1000, "order": "newest", "where": {"op": "severity", "value": "ERROR"}},
+            {"limit": 20, "order": "oldest"},
+        ],
+    }
+    view = json.loads(author_view_of_plan(json.dumps(plan)))
+    assert view["queries"][0] == {"where": {"op": "severity", "value": "ERROR"}}
+    assert view["queries"][1] == {"limit": 20, "order": "oldest"}
+
+
+class _ScriptedPost:
+    def __init__(self, *replies: tuple[int, dict]) -> None:
+        self.replies = list(replies)
+        self.bodies: list[dict] = []
+
+    def __call__(self, url, headers, body):
+        self.bodies.append(body)
+        return self.replies.pop(0)
+
+
+def _openrouter(post: _ScriptedPost) -> OpenRouterAuthor:
+    return OpenRouterAuthor(api_key="test", post=post, sleep=lambda _s: None)
+
+
+def _content(text: str) -> tuple[int, dict]:
+    return 200, {"choices": [{"message": {"content": text}}]}
+
+
+def test_openrouter_author_returns_parsed_question():
+    post = _ScriptedPost(_content('{"expressible": true, "question": " slow mirror writes? "}'))
+    result = _openrouter(post).author(_request())
+    assert result.question == "slow mirror writes?"
+    assert result.model == "anthropic/claude-haiku-5.5"
+    fmt = post.bodies[0]["response_format"]
+    assert fmt["json_schema"]["strict"] is True
+    assert set(fmt["json_schema"]["schema"]["required"]) == {"expressible", "question"}
+
+
+@pytest.mark.parametrize(
+    "reply,reason",
+    [
+        (_content('{"expressible": false, "question": ""}'), "author_declined"),
+        (_content("not json"), "author_unparseable"),
+        ((200, {"choices": [{"message": {"refusal": "no", "content": None}}]}), "author_refused"),
+        ((400, {"error": {"message": "bad request"}}), "author_error"),
+    ],
+)
+def test_openrouter_author_maps_failures_to_reasons(reply, reason):
+    assert _openrouter(_ScriptedPost(reply)).author(_request()).reason == reason
+
+
+@pytest.mark.parametrize("status", [401, 402, 403])
+def test_openrouter_auth_and_billing_errors_abort_the_run(status):
+    with pytest.raises(RuntimeError, match=f"HTTP {status}"):
+        _openrouter(_ScriptedPost((status, {}))).author(_request())
+
+
+def test_openrouter_retries_rate_limits_then_succeeds():
+    post = _ScriptedPost((429, {}), (503, {}), _content('{"expressible": true, "question": "q"}'))
+    assert _openrouter(post).author(_request()).question == "q"
+    assert len(post.bodies) == 3
+
+
+def test_openrouter_retries_network_errors_then_succeeds():
+    post = _ScriptedPost((0, {"error": "TimeoutError"}), _content('{"expressible": true, "question": "q"}'))
+    assert _openrouter(post).author(_request()).question == "q"
+    assert len(post.bodies) == 2
+
+
+def test_post_json_turns_a_read_timeout_into_a_retryable_status(monkeypatch):
+    import urllib.request
+
+    from planner_rl.data import author as author_mod
+
+    def _timeout(*_args, **_kwargs):
+        raise TimeoutError("The read operation timed out")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _timeout)
+    status, payload = author_mod._post_json("https://x", {}, {})
+    assert status == author_mod.NETWORK_ERROR and "timed out" in payload["error"]
+
+
+def test_read_gives_up_on_endless_keepalive_whitespace():
+    import time
+
+    from planner_rl.data import author as author_mod
+
+    class _KeepAlive:
+        def read1(self, _n):
+            time.sleep(0.01)
+            return b"\n"
+
+    with pytest.raises(TimeoutError):
+        author_mod._read_with_deadline(_KeepAlive(), time.monotonic() + 0.05)
+
+
+def test_openrouter_refuses_floating_aliases():
+    with pytest.raises(ValueError, match="alias"):
+        OpenRouterAuthor("~anthropic/claude-haiku-latest", api_key="test")
+
+
+def test_anthropic_auth_errors_abort_the_run():
+    import anthropic
+    import httpx2 as httpx
+
+    class _Failing:
+        def parse(self, **_kwargs):
+            response = httpx.Response(401, request=httpx.Request("POST", "https://x"))
+            raise anthropic.AuthenticationError("bad key", response=response, body=None)
+
+    author = AnthropicAuthor(client=SimpleNamespace(messages=_Failing()))
+    with pytest.raises(anthropic.AuthenticationError):
+        author.author(_request())
 
 
 # --- audit ----------------------------------------------------------------------

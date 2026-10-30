@@ -65,3 +65,29 @@ Slice 005 (eval harness + baselines) once a real dataset exists and has passed t
 1. `felix logger ingest-corpus` one LogHub dataset (HDFS is the smallest that is realistic).
 2. `gen-data --dry-run`, then check the strata and rejection mix in the manifest.
 3. A small paid run (`--n 300`), then audit 100. Only scale to 20k if the audit passes.
+
+### Paid pilots and audit (2026-10-30)
+
+`--n 300` per corpus on Hadoop-50k, BGL-20k and OpenStack-20k, with `claude-haiku-5.5` via OpenRouter ([0016](../decisions/0016-openrouter-as-a-second-authoring-provider.md)). Each audit is 34 rows per corpus on a fresh seed. **The audits were a Claude first pass, not a human**, and are marked `[claude first pass]` in each sheet's notes. A human spot-check is still owed before the 20k run.
+
+| Run | Prompt | Change | natural | answerable |
+|---|---|---|---|---|
+| pilot | q-2026-10-27.1 | (baseline) | not audited: 70% said "up to 1000" | |
+| pilot2 | q-2026-10-30.1 | hide default limit/order | 85% | **75%** (fails) |
+| pilot3 | q-2026-10-30.2 | location/window rendering, shape and sample rules, `noop_conjunct`, term stoplist | not audited: author saw stale templates | |
+| pilot4 | q-2026-10-30.2 | general template text (`CorpusView.template_text`) | 90% | **86%** (BGL 76%) |
+| pilot5 | q-2026-10-30.3 | hide aggregate group keys from the author | 92% | **99%** |
+
+Total spend across all pilots: $1.25. Remaining weak spot: `multi_query` naturalness (60–89%), because the sampler composes unrelated queries into one question. OpenStack train fills 164/240, since most of its AND plans are now correctly rejected as `noop_conjunct`.
+
+### Full run (2026-10-30)
+
+Prompt `q-2026-10-30.3`, `anthropic/claude-haiku-5.5` via OpenRouter, ~$7.75 (about $0.52 per 1k accepted). 14,815 examples total.
+
+| Corpus | train | val | test | Weak strata (train) |
+|---|---|---|---|---|
+| Hadoop-50k | 6400/6400 | 800/800 | 800/800 | none |
+| BGL-20k | 3473/5600 | 377/700 | 436/700 | conjunction 264, negation 161 |
+| OpenStack-20k | 1951/4000 | 330/500 | 248/500 | conjunction 55, negation 64; test has 0 conjunction |
+
+BGL and OpenStack hit the attempt cap. The main losses were `truncated_rows`, `too_broad` and `noop_conjunct`. Only Hadoop is balanced across strata. Conjunction and negation scores on BGL and OpenStack test sets will be too noisy to report alone in slice 005.

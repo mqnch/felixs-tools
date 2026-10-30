@@ -34,3 +34,32 @@ downloads are opt-in and untested against the network. Fixed the three URLs.
 2026-10-30: BGL dry run crashed building SeverityNode("SEVERE"). Slice 003 kept BGL's
 SEVERE/FAILURE on purpose; slice 002 froze an enum without them; nothing checked one
 against the other, and ingest stored the values without complaint. Fixed by decision 0015.
+
+2026-10-30: first paid pilot (Haiku 5.5 via OpenRouter, prompt q-2026-10-27.1, 870
+questions, $0.23): 607 said "up to 1000", 776 said "newest"/"most recent", 620 opened
+"Show me". The sampler's limit=MAX_LIMIT/order=newest defaults were shown to the author
+alongside "express every constraint". Prompt q-2026-10-30.1 hides default limit/order from
+the author's view of the plan and asks for varied phrasing: 19 / 0 / 51 on the rerun, and
+the 19 are log content ("soft limit", "maxEvents 10000"), not the result limit.
+
+2026-10-30: audit of pilot 2 (q-2026-10-30.1; 102 rows, Claude first pass, not a human)
+failed decision 0004's trigger: answerable 75% (Hadoop 62%, BGL 82%, OpenStack 79%).
+Causes, most to least common: the author describes sample lines as if they were filters
+("about spills"); names a whole file for a one-component location_key; says "last N hours"
+for absolute windows; truncates IDs; asks "how many" of row queries. Sampler side: AND
+leaves implied by a sibling template (term=state AND "wait state enable") and stopword
+terms (term=such). Fixed with prompt q-2026-10-30.2 (location/window rendering, shape and
+sample rules), a noop_conjunct gold rejection, and a term stoplist.
+
+2026-10-30: CorpusView.template_text used MIN(template) per template_id. Logger stores each
+row's template as Drain had it at ingest, and Drain only generalizes, so early rows keep the
+literal text ("1534 double-hummer alignment exceptions") and MIN picks it ('1' < '<'). The
+author was shown fully literal patterns for ~1/3 of templates and wrote over-specific
+questions ("kvstart = 26214396; length = 6553600"); sampler term leaves came from the same
+stale per-row text. Now uses the last-ingested row's template. Logger's index still stores
+stale per-row templates; anything else reading log_entries.template has the same trap.
+
+2026-10-30: under q-2026-10-30.2 the author was still shown aggregate group keys
+("KERNEL -> 56"), and in 6 of 34 BGL audit rows it turned them into filters ("how many
+KERNEL lines..."), despite an explicit rule against exactly that. Prompt rules lost to
+visible data twice today (limit/order, then group keys); hiding the data fixed both.

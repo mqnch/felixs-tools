@@ -139,10 +139,17 @@ class CorpusView:
         self.severities = self._distinct("severity")
         self.location_keys = self._distinct("location_key")
         self.template_ids = [int(v) for v in self._distinct("template_id")]
+        # Each row stores its template as Drain had it at ingest time, and Drain
+        # only ever generalizes a cluster. So the last-ingested row carries the
+        # most general text ("<*> double-hummer ..."), while MIN(template) picked
+        # the earliest, fully literal one ("1534 double-hummer ...") and made the
+        # author write over-specific questions.
         self._templates = {
             int(r["template_id"]): r["template"]
             for r in self._conn.execute(
-                "SELECT template_id, MIN(template) AS template FROM log_entries GROUP BY template_id"
+                "SELECT e.template_id, e.template FROM log_entries e "
+                "JOIN (SELECT template_id, MAX(id) AS id FROM log_entries GROUP BY template_id) last "
+                "ON e.id = last.id"
             )
         }
 

@@ -61,6 +61,7 @@ These predate this directory and are documented inline in [../sourceoftruth.md](
 | [0013](0013-gold-is-the-complete-match-set.md) | Gold for a row query is its complete match set, never a truncated page | 2026-10-27 | Accepted |
 | [0014](0014-question-authoring-bypasses-router.md) | Dataset question authoring calls the Anthropic SDK directly, not Router | 2026-10-27 | Accepted |
 | [0015](0015-fold-bgl-severities-into-the-dsl-enum.md) | BGL's SEVERE/FAILURE fold to ERROR/FATAL at ingest; raw level kept in `extra` | 2026-10-30 | Accepted |
+| [0016](0016-openrouter-as-a-second-authoring-provider.md) | OpenRouter as a second direct authoring provider; 401/402/403 abort the run | 2026-10-30 | Accepted |
 
 ## Template
 
