@@ -46,7 +46,17 @@ The invariant `execute(gold_plan) == gold`, and that gold stays inside its split
 
 ## Friction observed
 
-None yet, since this has not been run on a real corpus. One design misjudgment was caught in testing before it shipped: the first breadth cap (5% of the split) rejected >90% of sampled plans on small corpora. The spec only asked to reject "nearly the whole corpus".
+First real dry runs (2026-10-30, `--n 300`), one gen-data run per corpus, train examples accepted out of 240:
+
+| Corpus | Templates | Train accepted |
+|---|---|---|
+| HDFS, 200k-row sample | 29 | stalled; `--n 20000` was killed after 25 min at 3.5k |
+| HDFS, 20k-row sample | 20 | 166 (gave up; 8355/9600 attempts `truncated_rows`) |
+| OpenStack, 50k → 20k | 49 → 40 | 198 → **240** |
+| BGL, 50k → 20k | 258 → 203 | crashed → 231 → **240** (after decision [0015](../decisions/0015-fold-bgl-severities-into-the-dsl-enum.md)) |
+| Hadoop, 50k | 261 | **240** |
+
+HDFS is too low-diversity for row queries under `MAX_LIMIT` at any useful size. The other three fill every stratum at 20–50k rows. Details are in [friction.md](../friction.md). The OpenStack, Spark and Thunderbird archive URLs were also wrong (404) and are now fixed. One design misjudgment was caught in testing before it shipped: the first breadth cap (5% of the split) rejected >90% of sampled plans on small corpora. The spec only asked to reject "nearly the whole corpus".
 
 ## What this unlocks
 

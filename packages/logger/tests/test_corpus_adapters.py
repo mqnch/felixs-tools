@@ -146,6 +146,39 @@ def test_bgl_alert_label_is_preserved_verbatim() -> None:
     assert record.severity == "FATAL"
 
 
+@pytest.mark.parametrize(
+    ("line", "folded", "raw_level"),
+    [
+        (
+            "- 1118245894 2005.06.08 R33-M1-N6 2005-06-08-08.51.34.505108 R33-M1-N6 "
+            "NULL DISCOVERY SEVERE Can not get assembly information for node card",
+            "ERROR",
+            "SEVERE",
+        ),
+        (
+            "MASNORM 1119992001 2005.06.28 NULL 2005-06-28-13.53.21.974236 NULL "
+            "RAS BGLMASTER FAILURE mmcs_server exited normally with exit code 13",
+            "FATAL",
+            "FAILURE",
+        ),
+    ],
+)
+def test_bgl_levels_outside_the_dsl_fold_and_keep_the_raw_level(
+    line: str, folded: str, raw_level: str
+) -> None:
+    """Decision 0015: the frozen DSL has no SEVERE or FAILURE."""
+    record = get_adapter("bgl").parse_line(line)
+    assert record is not None
+    assert record.severity == folded
+    assert record.extra["level"] == raw_level
+
+
+def test_bgl_in_vocabulary_level_carries_no_raw_level() -> None:
+    record = get_adapter("bgl").parse_line(BGL_LINES[1])
+    assert record is not None
+    assert "level" not in record.extra
+
+
 def test_bgl_keeps_node_and_epoch_out_of_locationid() -> None:
     record = get_adapter("bgl").parse_line(BGL_LINES[0])
     assert record is not None

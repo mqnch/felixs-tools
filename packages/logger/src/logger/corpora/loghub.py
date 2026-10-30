@@ -19,6 +19,10 @@ from logger.corpora.base import CorpusRecord, DatasetAdapter, normalise_severity
 
 ZENODO = "https://zenodo.org/records/8196385"
 
+# BGL levels outside the frozen DSL severity enum, folded to their nearest
+# neighbour in BGL's own ordering (INFO < WARN < SEVERE < ERROR < FATAL < FAILURE).
+_BGL_SEVERITY_FOLDS = {"SEVERE": "ERROR", "FAILURE": "FATAL"}
+
 
 class HdfsAdapter(DatasetAdapter):
     """HDFS_v1 -- 1.47 GiB, 11,175,629 lines, from a 203-node EC2 cluster."""
@@ -72,7 +76,11 @@ class BglAdapter(DatasetAdapter):
         "<Type> <Component> <Level> <Content>"
     )
     default_path = "BGL.log"
-    severities = ("INFO", "WARN", "ERROR", "SEVERE", "FATAL", "FAILURE")
+    severities = ("INFO", "WARN", "ERROR", "FATAL")
+    """After folding. The source vocabulary also has ``SEVERE`` (just below
+    ``ERROR``) and ``FAILURE`` (just above ``FATAL``); neither is in the frozen
+    DSL's severity enum, so they fold to their nearest neighbour and the raw
+    level is kept in ``extra["level"]`` (decision 0015)."""
     label_source = "inline: field 1"
     """``-`` means normal; anything else is one of 41 alert categories
     (``KERNDTLB``, ``KERNSTOR``, ``APPSEV``, ...). 348,460 of 4,747,963 lines are
@@ -98,10 +106,14 @@ class BglAdapter(DatasetAdapter):
         extra = {"epoch": m["epoch"], "node": m["node"], "type": m["type"]}
         if m["node2"] is None:
             extra["node_repeat_missing"] = "1"
+        level = normalise_severity(m["level"])
+        if level in _BGL_SEVERITY_FOLDS:
+            extra["level"] = level
+            level = _BGL_SEVERITY_FOLDS[level]
         return CorpusRecord(
             raw=m["content"],
             timestamp=timestamps.from_bgl_stamp(m["stamp"]),
-            severity=normalise_severity(m["level"]),
+            severity=level,
             location=LocationId(path=self.default_path, service=m["component"]),
             label=None if m["label"] == "-" else m["label"],
             extra=extra,

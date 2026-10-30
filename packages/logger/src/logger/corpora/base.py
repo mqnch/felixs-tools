@@ -148,10 +148,9 @@ def normalise_severity(value: str | None) -> str | None:
     """Upper-case a level and fold ``WARNING`` onto ``WARN``.
 
     That single fold is a spelling difference and matches what
-    ``service._guess_severity`` already does. Nothing else is folded: BGL's
-    ``SEVERE`` and ``FAILURE`` are distinct levels in the source vocabulary, and
-    collapsing them into ``ERROR`` would quietly delete a distinction the corpus
-    is supposed to preserve.
+    ``service._guess_severity`` already does. Folds that change meaning, such as
+    BGL's ``SEVERE`` and ``FAILURE``, belong in the adapter that owns that
+    vocabulary, which keeps the raw level in ``extra`` (decision 0015).
     """
     if value is None:
         return None

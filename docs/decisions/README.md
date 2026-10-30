@@ -60,6 +60,7 @@ These predate this directory and are documented inline in [../sourceoftruth.md](
 | [0012](0012-aggregates-as-groups-not-rows.md) | Aggregate results as a separate group list, not pseudo-rows | 2026-08-15 | Accepted |
 | [0013](0013-gold-is-the-complete-match-set.md) | Gold for a row query is its complete match set, never a truncated page | 2026-10-27 | Accepted |
 | [0014](0014-question-authoring-bypasses-router.md) | Dataset question authoring calls the Anthropic SDK directly, not Router | 2026-10-27 | Accepted |
+| [0015](0015-fold-bgl-severities-into-the-dsl-enum.md) | BGL's SEVERE/FAILURE fold to ERROR/FATAL at ingest; raw level kept in `extra` | 2026-10-30 | Accepted |
 
 ## Template
 
