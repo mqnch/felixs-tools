@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import platform
 import shutil
 import subprocess
 from pathlib import Path
 
 import typer
+
+from planner_rl.train.baselines import STOCK_MODELS
 
 app = typer.Typer(help="Post-training Logger's query planner")
 slurm_app = typer.Typer(help="SLURM training scaffold")
@@ -100,13 +103,35 @@ def audit_data(
 
 
 @app.command("repair-data")
-def repair_data(data_dirs: list[Path] = typer.Argument(..., exists=True, file_okay=False)) -> None:
-    """Floor absolute time windows to the minute where the question states none (decision 0020)."""
-    from planner_rl.data.repair import floor_time_windows
+def repair_data(
+    data_dirs: list[Path] = typer.Argument(..., exists=True, file_okay=False),
+    fix: str = typer.Option(..., "--fix", help="floor-time-windows (0020) | reauthor-unsupported-detail (0022)"),
+    provider: str = typer.Option("openrouter", "--provider", help="reauthor only: anthropic | openrouter"),
+    model: str | None = typer.Option(None, "--model", help="reauthor only: question-authoring model"),
+) -> None:
+    """Repair a generated dataset in place; originals are kept and the manifest records it."""
+    from planner_rl.data import repair
+
+    if fix == "floor-time-windows":
+        run = repair.floor_time_windows
+    elif fix == "reauthor-unsupported-detail":
+        from planner_rl.data.author import DEFAULT_MODEL, DEFAULT_OPENROUTER_MODEL, AnthropicAuthor, OpenRouterAuthor
+
+        if provider == "openrouter":
+            author = OpenRouterAuthor(model or DEFAULT_OPENROUTER_MODEL)
+        elif provider == "anthropic":
+            author = AnthropicAuthor(model or DEFAULT_MODEL)
+        else:
+            raise typer.BadParameter(f"unknown provider {provider!r}", param_hint="--provider")
+
+        def run(d):
+            return repair.reauthor_unsupported_detail(d, author)
+    else:
+        raise typer.BadParameter(f"unknown fix {fix!r}", param_hint="--fix")
 
     for data_dir in data_dirs:
         typer.echo(f"{data_dir}:")
-        for split, counts in floor_time_windows(data_dir).items():
+        for split, counts in run(data_dir).items():
             strata = counts.pop("strata")
             typer.echo(f"  {split}: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
             typer.echo(f"    strata: {json.dumps(strata)}")
@@ -224,6 +249,56 @@ def slurm_render(
     )
     path = slurm.write(spec, out)
     typer.echo(f"wrote {path}")
+    if submit:
+        typer.echo(f"submitted job {slurm.submit(path)}")
+
+
+@slurm_app.command("eval-baselines")
+def slurm_eval_baselines(
+    out: Path = typer.Option(Path("jobs/eval-baselines.sbatch"), "--out", help="sbatch script; the driver goes next to it"),
+    workdir: Path = typer.Option(Path.cwd(), "--workdir", help="Repo checkout on the cluster"),
+    model: list[str] = typer.Option(list(STOCK_MODELS), "--model", help="Repeat per model; default 0.8B, 2B, 4B"),
+    vllm_bin: str = typer.Option("vllm", "--vllm-bin", help="vllm from its own venv, e.g. ~/vllm-env/bin/vllm"),
+    vllm_arg: list[str] = typer.Option([], "--vllm-arg", help="Extra `vllm serve` flag, e.g. --vllm-arg=--enforce-eager"),
+    port: int = typer.Option(8000, "--port"),
+    hf_cache: str | None = typer.Option(None, "--hf-cache", help="Shared HF cache to stage to /tmp (then runs offline)"),
+    partition: str = typer.Option("compute", "--partition"),
+    time: str = typer.Option("0-08:00:00", "--time"),
+    gpus: int = typer.Option(1, "--gpus"),
+    nodelist: str | None = typer.Option(None, "--nodelist", help="Optional; the rtx_3090 GRES already limits it to the 3090 nodes"),
+    submit: bool = typer.Option(False, "--submit", help="Also sbatch it. Off by default."),
+) -> None:
+    """Render one job that serves each stock model with vLLM and runs `eval` on it (slice 005)."""
+    from planner_rl.train import slurm
+    from planner_rl.train.baselines import BaselineSpec, driver_script
+
+    driver = out.with_suffix(".driver.sh")
+    driver.parent.mkdir(parents=True, exist_ok=True)
+    driver.write_text(
+        driver_script(
+            BaselineSpec(
+                models=tuple(model),
+                # Expanded here: the driver quotes it, so the shell never would.
+                vllm_bin=os.path.expanduser(vllm_bin),
+                vllm_args=tuple(vllm_arg),
+                port=port,
+            )
+        )
+    )
+    driver.chmod(0o755)
+    spec = slurm.JobSpec(
+        name="eval-baselines",
+        command=["bash", str(driver.resolve())],
+        run_id="stock-baselines",
+        workdir=str(workdir),
+        shared_hf_cache=hf_cache,
+        partition=partition,
+        gpus=gpus,
+        time=time,
+        nodelist=nodelist or None,
+    )
+    path = slurm.write(spec, out)
+    typer.echo(f"wrote {path} and {driver}")
     if submit:
         typer.echo(f"submitted job {slurm.submit(path)}")
 

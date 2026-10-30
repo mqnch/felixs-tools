@@ -21,10 +21,9 @@ from typing import Protocol
 from common import MAX_LIMIT
 from pydantic import BaseModel, Field
 
-from planner_rl.data.corpus import AnchorRow
 from planner_rl.http import NETWORK_ERROR, post_json
 
-PROMPT_VERSION = "q-2026-10-30.3"
+PROMPT_VERSION = "q-2026-10-30.4"
 DEFAULT_MODEL = "claude-opus-5-5"
 DEFAULT_OPENROUTER_MODEL = "anthropic/claude-haiku-5.5"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -37,7 +36,7 @@ SYSTEM_PROMPT = """\
 You write realistic search questions for a log-search benchmark.
 
 You are shown a structured query plan that was executed against a corpus of \
-production logs, plus a sample of the log lines it returned. Write the single \
+production logs. Write the single \
 question an on-call engineer would plausibly type into a log search tool to \
 get exactly that result.
 
@@ -49,9 +48,14 @@ time_range, group_by), JSON, or the word "template".
 - Express every constraint in the plan, and nothing it does not contain. \
 Exclusions, alternatives, time windows and counting/grouping must all be \
 recoverable from your question.
-- The sample lines only illustrate the result. Do not describe what they say \
-("about spills", "such as retries") unless the plan itself filters on it: \
-words like "about" or "mentioning" add a filter the plan does not have.
+- Describe only what the plan filters on. A location means every line that \
+component wrote to that file: ask for all of them, never "the progress lines" \
+or "the GET requests" from it, and do not list examples of what they say. A \
+message pattern means every line of that pattern: describe its fixed words, \
+not values that vary (<*>). Words like "about", "mentioning" or "such as" add \
+a filter the plan does not have.
+- Keep the plan's logic. Alternatives (or) must read as "either ... or ...", \
+never as one thing qualified by the other ("X in file Y" reads as both).
 - A location is one component writing to one file. Name the component, and \
 the file only if it disambiguates ("the MapTask logger in container \
 container_..._000007's log"). Do not name only the file, which also contains \
@@ -87,7 +91,6 @@ class AuthorRequest:
     dataset: str
     plan_json: str
     reference_now: str | None
-    sample_rows: list[AnchorRow]
     template_texts: dict[int, str]
     groups: list[dict]
 
@@ -163,9 +166,9 @@ def render_user_prompt(request: AuthorRequest) -> str:
     if request.template_texts:
         lines += ["", "Message patterns referenced by template ID in the plan (<*> is a variable):"]
         lines += [f"- {tid}: {text}" for tid, text in sorted(request.template_texts.items())]
-    if request.sample_rows:
-        lines += ["", "Sample of returned log lines (illustration only, not filters):"]
-        lines += [f"- {row.raw}" for row in request.sample_rows]
+    # No sample lines (q-2026-10-30.4): shown them, the author described them
+    # ("the GET requests to servers/detail") although the plan does not filter
+    # on them, in ~7% of examples, against an explicit rule.
     if request.groups:
         # Counts only, never the group keys: shown "KERNEL -> 56", the author
         # turned the result into a filter ("how many KERNEL lines...") in 6 of

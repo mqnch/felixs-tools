@@ -98,3 +98,5 @@ Slice 005's eval found that absolute time windows were drawn to the second while
 - 2,446 examples floored, of which 729 got new gold.
 - 21 dropped.
 - Train now holds 6,388 Hadoop, 3,471 BGL and 1,949 OpenStack examples.
+
+Second repair, the same day ([0022](../decisions/0022-reauthor-questions-that-describe-unfiltered-lines.md)). About 8% of questions described the sample lines the author was shown ("the GET requests to servers/detail") instead of what the plan filters on. Under prompt `q-2026-10-30.4` the author sees no sample lines, and the flagged questions were re-authored: 1,067 rewritten, 91 dropped. The fix also found a near-duplicate filter bug: it ignored numbers, so time-window variants were rejected as duplicates, including during the original run. Now **14,702 examples**: train 6,340 Hadoop, 3,460 BGL and 1,936 OpenStack. All three repairs cost about $2.

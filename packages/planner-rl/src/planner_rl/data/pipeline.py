@@ -36,7 +36,6 @@ from planner_rl.data.sampler import DEFAULT_MIX, PlanSampler, SampledPlan
 
 DEFAULT_SEED = 20261027
 MAX_ATTEMPTS_PER_EXAMPLE = 40
-SAMPLE_ROWS_FOR_AUTHOR = 6
 
 
 @dataclass
@@ -244,7 +243,6 @@ def _one_example(
         dataset=dataset,
         plan_json=sampled.plan.model_dump_json(exclude_none=True, indent=2),
         reference_now=timeutil.canonical(now),
-        sample_rows=view.rows(_spread(gold.row_ids, SAMPLE_ROWS_FOR_AUTHOR)),
         template_texts={tid: view.template_text(tid) for tid in _template_ids(sampled)},
         groups=gold.groups,
     )
@@ -255,6 +253,8 @@ def _one_example(
 
     if filters.leaks_dsl(question):
         return None, "dsl_leak"
+    if filters.asks_count_for_rows(question, any(q.aggregate for q in sampled.plan.queries)):
+        return None, "shape_mismatch"
     if stratum not in filters.SIMPLE_STRATA and filters.keyword_trivial(
         index, question, gold.row_ids, now=now
     ):
@@ -297,14 +297,6 @@ def _template_ids(sampled: SampledPlan) -> set[int]:
         if q.where is not None:
             walk(q.where)
     return found
-
-
-def _spread(ids: list[int], k: int) -> list[int]:
-    """Evenly spaced sample, so the author sees the range of the result, not its head."""
-    if len(ids) <= k:
-        return ids
-    step = len(ids) / k
-    return [ids[int(i * step)] for i in range(k)]
 
 
 def _corpus_identity(corpus_db: str | Path) -> tuple[str, dict]:

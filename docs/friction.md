@@ -86,3 +86,13 @@ The audit's 99% answerable is optimistic; see slice 005 for the measured noise r
 write" was answered with a plain total, while gold grouped by X's own location key. It
 also counted 4 self-corrected replies ("Correction: ...") as invalid. Found only by reading
 every failure; scorer v2 fixes both, and `rescore` re-applied it for free.
+
+2026-10-30: a third time a prompt rule lost to visible data. The author was told "sample lines
+only illustrate" and still wrote "the GET requests to servers/detail" for a plan with no such
+filter, in ~8% of examples. Removed the sample lines (q-2026-10-30.4). Rule of thumb now: if the
+author must not use it, don't show it.
+
+2026-10-30: the near-duplicate filter dropped tokens under 3 characters, so times vanished
+and "X between 17:49 and 17:59" == "X between 18:10 and 18:20". Found only because a repair
+lost 36% of its re-authored questions to it. It had also been silently rejecting valid
+time-window variants throughout the original 20k generation.

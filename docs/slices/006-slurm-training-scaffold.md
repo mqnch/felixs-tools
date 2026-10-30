@@ -1,7 +1,7 @@
 # 006 — SLURM training scaffold
 
 **Date:** 2026-10-27
-**Status:** In progress. Built and tested locally; the cluster smoke run and the vLLM version pin need a session on WATcloud.
+**Status:** In progress. Built and tested locally; the cluster smoke run, the vLLM version pin and the stock baselines need one session on WATcloud. Follow [the cluster checklist](../cluster-checklist.md).
 **Touches:** `packages/planner-rl` (`planner_rl.train`, `slurm` CLI group)
 **Source of truth:** §6 (post-training stack, "every training run must checkpoint and resume")
 **Decisions:** [0005](../decisions/0005-grpo-primary-prime-ablation.md), [0006](../decisions/0006-qwen3-base-models.md)
@@ -17,6 +17,8 @@ uv run planner-rl slurm render --name smoke --run-id smoke-1 --out jobs/smoke.sb
     --gpus 0 --time 00:10:00 -- uv run planner-rl slurm smoke --run-id smoke-1
 uv run planner-rl slurm render ... --submit                                         # only with --submit
 uv run planner-rl slurm env-check                                                   # on a GPU node: torch/CUDA/vLLM/GPUs
+uv run planner-rl slurm eval-baselines --workdir <repo> --hf-cache <shared-hf> \
+    --vllm-bin ~/vllm-env/bin/vllm                                                  # stock Qwen3.5 baselines for slice 005
 ```
 
 ## How it works
@@ -25,6 +27,7 @@ uv run planner-rl slurm env-check                                               
 - **`preempt`**: the sbatch has `--signal=USR1@300 --requeue`. The Python step sees `StopFlag.requested`, checkpoints, and calls `scontrol requeue`.
 - **`slurm`**: pure `render(JobSpec)`. Defaults follow WATcloud's docs: partition `compute` (1 day max; `compute_dense` for 7 days), `gpu:rtx_3090:N`, and `tmpdisk` GRES for node-local `/tmp`. `submit()` runs only on `--submit`.
 - **`hf_cache`**: prefetch on the login node, then at job start copy to `/tmp/hf`, preserving the hub's symlink layout, and set `HF_HUB_OFFLINE=1`. A missing file then fails at startup instead of downloading on a compute node.
+- **`baselines`** (added 2026-10-30 for slice 005's gate): `slurm eval-baselines` renders one single-GPU job plus a bash driver. For each stock model the driver serves it with vLLM, waits for `/v1/models`, runs `planner-rl eval`, then stops the server. Finished models are skipped and an interrupted eval resumes, so requeueing and resubmitting are safe. vLLM comes from its own virtualenv ([0021](../decisions/0021-stock-baselines-one-sequential-job-vllm-own-venv.md)). Tested locally against a fake `vllm`: full run, skip on rerun, SIGUSR1 mid-eval, then resume.
 - **`smoke`**: the outer loop every real trainer in 007–010 will share, with a toy deterministic state so that "resumed correctly" is checkable.
 
 ## Deliberately not in this slice
@@ -37,7 +40,8 @@ uv run planner-rl slurm env-check                                               
 
 ## Decisions made here
 
-None. These are WATcloud's documented conventions plus the checkpointing requirement already in §6.
+- [0021](../decisions/0021-stock-baselines-one-sequential-job-vllm-own-venv.md): stock baselines run as one sequential single-GPU job, with vLLM in its own virtualenv.
+- The rest follows WATcloud's documented conventions plus the checkpointing requirement already in §6.
 
 ## Friction observed
 
@@ -45,7 +49,7 @@ None yet, since this has not been run on the cluster.
 
 ## What this unlocks
 
-Slice 007 (SFT) once the cluster checklist below is done:
+Slice 007 (SFT) once the cluster checklist is done. [docs/cluster-checklist.md](../cluster-checklist.md) is the full ordered version. It adds the environment setup, the vLLM fallback flags and the slice-005 baseline job to the two steps below:
 
 1. Submit the smoke job with `--time 00:10:00` and `--steps 900 --step-seconds 1`: the signal fires 5 min in (300 s lead), so it must requeue at least once. Confirm it is signalled, requeues, and finishes with `acc == 405450` (sum of 1..900) in `events.jsonl`.
 2. On a `trpro-slurm1` GPU job, find a vLLM version that serves Qwen3.5-0.8B; record it with `env-check` output in a decision record. Otherwise fall back to Unsloth rollouts per 0006.

@@ -65,12 +65,12 @@ The invariant: gold plans fed back as model output score exactly 1.0 on all 1,48
 
 ## Results (test split, prompt p-2026-10-30.1, scorer s-2026-10-30.2)
 
-After the time-window repair ([0020](../decisions/0020-repair-time-windows-in-place.md)), rescored from saved outputs with no new model calls. Pre-repair numbers are in brackets.
+After both data repairs ([0020](../decisions/0020-repair-time-windows-in-place.md), [0022](../decisions/0022-reauthor-questions-that-describe-unfiltered-lines.md)). Only the 101 test examples whose question changed were rerun; every other record was reused. The original (pre-repair) numbers are in brackets.
 
 | Model | n | answer | format valid | answer when format valid | cost |
 |---|---|---|---|---|---|
-| Qwen3.5-9B, stock, no thinking | 1480 | **0.707** [0.700] | 77.9% | **0.905** [0.899] | $1.32 |
-| Claude Sonnet 5.5, low reasoning | 300 | **0.965** [0.946] | 99.0% | 0.975 [0.956] | $1.62 |
+| Qwen3.5-9B, stock, no thinking | 1466 | **0.715** [0.700] | 77.9% | **0.918** [0.899] | ~$1.35 |
+| Claude Sonnet 5.5, low reasoning | 300 | **0.963** [0.946] | 98.7% | 0.976 [0.956] | ~$1.55 |
 
 Qwen3.5-9B by corpus: Hadoop 0.72, BGL 0.64, OpenStack 0.74. By stratum, its weakest are aggregate (0.52), conjunction (0.55) and multi_query (0.64).
 
@@ -98,13 +98,13 @@ The minute-rounding problem is systematic. Share of examples where the gold wind
 | BGL | 24% | 25% |
 | OpenStack | 23% | 14% |
 
-The slice-004 audit passed it because a reader sees "17:45" as a fine rendering of 17:45:24. **Repaired** ([0020](../decisions/0020-repair-time-windows-in-place.md)). The remaining known label noise (questions adding detail gold lacks, ~2%) needs an authoring-prompt fix and is still open.
+The slice-004 audit passed it because a reader sees "17:45" as a fine rendering of 17:45:24. **Repaired** ([0020](../decisions/0020-repair-time-windows-in-place.md)). Questions that add detail gold lacks were also repaired, by re-authoring them without sample lines ([0022](../decisions/0022-reauthor-questions-that-describe-unfiltered-lines.md)).
 
 ## Deliberately not in this slice (added during the build)
 
 - **No stock 0.8B/2B/4B numbers yet.** OpenRouter doesn't host them, and running them on the dev laptop isn't practical. They run on the cluster with the same harness ([0019](../decisions/0019-qwen-9b-upper-bound-for-the-gate.md)).
 - **Frontier is a 300-example sample**, seeded and the same for any model. `compare` scores on the shared examples.
-- **Over-specified questions (~2%) are not fixed.** That needs an authoring-prompt change and a regeneration. The time-window repair was free and is done.
+- **Known residue:** 19 "how many" questions over row plans (0.13%) from the original run, and the AND/OR and wrong-date authoring slips seen once each. Generation now filters the first; the others are too rare to measure without a new audit.
 
 ## What this unlocks
 

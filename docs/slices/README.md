@@ -47,8 +47,8 @@ Per decision [0001](../decisions/0001-post-trained-planner-is-primary-deliverabl
 | [002](002-extended-query-dsl.md) | Extended query DSL, validator, executor | Shipped | 2026-08-15. DSL frozen at `SCHEMA_VERSION` 1.0.0 |
 | [003](003-loghub-corpus-ingest.md) | LogHub corpus ingestion | Shipped | 2026-08-15. CLI wired as `felix logger ingest-corpus` |
 | [004](004-reverse-generated-dataset.md) | Reverse-generated training dataset | In progress | 2026-10-27. Pipeline built and tested; real-corpus run + manual audit pending |
-| [005](005-eval-harness-and-baselines.md) | Eval harness, stock baselines, difficulty gate | In progress | 2026-10-30. Harness built; Qwen3.5-9B 0.70 (0.90 when format-valid), Sonnet 5.5 0.95. Stock 2B owed on cluster; time-window label noise found |
-| [006](006-slurm-training-scaffold.md) | SLURM training scaffold — sbatch, HF cache staging, checkpoint/resume, run logging | In progress | 2026-10-27. Built and tested locally; cluster smoke run + vLLM pin pending |
+| [005](005-eval-harness-and-baselines.md) | Eval harness, stock baselines, difficulty gate | In progress | 2026-10-30. Harness built; Qwen3.5-9B 0.715 (0.918 when format-valid), Sonnet 5.5 0.963 after two data repairs. Stock 2B owed on cluster |
+| [006](006-slurm-training-scaffold.md) | SLURM training scaffold — sbatch, HF cache staging, checkpoint/resume, run logging | In progress | 2026-10-27. Built and tested locally; cluster smoke run, vLLM pin and stock-baseline job pending, all in one session per [the cluster checklist](../cluster-checklist.md) |
 | 007 | SFT baseline, all three sizes, honestly tuned with a real sweep | Planned | A weak baseline is the fastest way to lose the RL claim |
 | 008 | GRPO with execution reward — **the headline result** | Planned | vLLM rollouts + trainer on one 4×3090 node |
 | 009 | PRIME implicit process-reward ablation | Planned | Negative result is publishable and expected to be possible |

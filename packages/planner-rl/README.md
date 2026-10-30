@@ -11,7 +11,7 @@ Mirror (read-only output, not yet created): `mqnch/planner-rl`. Because the mirr
 **Data generation and the SLURM scaffold are built and tested; no model is trained yet.**
 
 - [Slice 004](../../docs/slices/004-reverse-generated-dataset.md), *in progress*: dataset pipeline, filters, splits, manifest and audit tooling. The first real-corpus run and the manual audit are still pending.
-- [Slice 006](../../docs/slices/006-slurm-training-scaffold.md), *in progress*: run dirs, atomic checkpoints, pre-timeout requeue, sbatch rendering, HF cache staging. The cluster smoke run and the **vLLM version pin** are still pending, and slice 008 is blocked on the pin.
+- [Slice 006](../../docs/slices/006-slurm-training-scaffold.md), *in progress*: run dirs, atomic checkpoints, pre-timeout requeue, sbatch rendering, HF cache staging, and the stock-baseline eval job. The cluster smoke run and the **vLLM version pin** are still pending, and slice 008 is blocked on the pin.
 - [Slice 005](../../docs/slices/005-eval-harness-and-baselines.md), *in progress*: eval harness, execution scoring, `compare` and the difficulty gate are built and tested. The Qwen3.5-9B upper-bound and Sonnet 5.5 frontier runs are in progress; stock 0.8B/2B/4B are owed on the cluster ([0019](../../docs/decisions/0019-qwen-9b-upper-bound-for-the-gate.md)).
 - Not started: SFT (007), GRPO (008), PRIME (009), cost curve (010).
 
@@ -23,9 +23,9 @@ Mirror (read-only output, not yet created): `mqnch/planner-rl`. Because the mirr
 | `data.sampler` | Stratified plan sampling over the frozen DSL |
 | `data.gold` | Execute plan → gold; structural rejection |
 | `data.author` | Question authoring with Claude (`AnthropicAuthor`), `PROMPT_VERSION` |
-| `data.filters` | DSL-leak, keyword-trivial and near-duplicate filters |
+| `data.filters` | DSL-leak, shape-mismatch, keyword-trivial and near-duplicate filters; `unsupported_detail` detector |
 | `data.pipeline` | `generate_dataset()`: the `gen-data` body; `DatasetManifest` |
-| `data.repair` | In-place dataset repairs recorded in the manifest (`floor_time_windows`, [0020](../../docs/decisions/0020-repair-time-windows-in-place.md)) |
+| `data.repair` | In-place dataset repairs recorded in the manifest (`floor_time_windows` [0020](../../docs/decisions/0020-repair-time-windows-in-place.md), `reauthor_unsupported_detail` [0022](../../docs/decisions/0022-reauthor-questions-that-describe-unfiltered-lines.md)) |
 | `data.audit` | Manual-audit sheet and scoring |
 | `http` | Stdlib JSON POST with a whole-request deadline, shared by authoring and eval |
 | `eval.prompt` | Planner prompt: DSL spec + corpus card ([0017](../../docs/decisions/0017-planner-prompt-carries-a-corpus-card.md)), `EVAL_PROMPT_VERSION` |
@@ -37,6 +37,7 @@ Mirror (read-only output, not yet created): `mqnch/planner-rl`. Because the mirr
 | `train.preempt` | `StopFlag` (SIGUSR1/SIGTERM), `requeue()` |
 | `train.slurm` | `JobSpec` → sbatch; explicit `submit()` |
 | `train.hf_cache` | Prefetch, stage to node-local `/tmp`, offline env |
+| `train.baselines` | Driver for the stock-model baseline job: vLLM serve → wait → `eval` → stop, per model; skip if done ([0021](../../docs/decisions/0021-stock-baselines-one-sequential-job-vllm-own-venv.md)) |
 | `train.smoke` | Toy trainer proving the checkpoint/resume loop |
 
 ## CLI
@@ -44,12 +45,13 @@ Mirror (read-only output, not yet created): `mqnch/planner-rl`. Because the mirr
 | Command | What it does |
 |---|---|
 | `planner-rl gen-data --corpus DB --n N --out DIR [--dry-run] [--seed S] [--provider anthropic\|openrouter] [--model M]` | Build a dataset. `--dry-run` makes no API calls. `--provider openrouter` defaults to `anthropic/claude-haiku-5.5` ([0016](../../docs/decisions/0016-openrouter-as-a-second-authoring-provider.md)) |
-| `planner-rl repair-data DIR...` | Floor absolute time windows to the minute where the question states no seconds; recompute gold; back up originals |
+| `planner-rl repair-data DIR... --fix floor-time-windows\|reauthor-unsupported-detail [--provider --model]` | In-place dataset repairs, recorded in the manifest with originals backed up: floor windows to the minute ([0020](../../docs/decisions/0020-repair-time-windows-in-place.md)); re-author questions that describe lines the plan doesn't filter on ([0022](../../docs/decisions/0022-reauthor-questions-that-describe-unfiltered-lines.md)) |
 | `planner-rl audit-data DIR [--sample 100]` / `--score SHEET` | Write or score the manual-audit sheet |
 | `planner-rl eval --data DIR... --model M --out FILE [--split test] [--per-corpus N] [--local \| --base-url URL] [--concurrency C] [--thinking \| --reasoning-effort E]` | Score a planner by execution. Default endpoint is OpenRouter; `--local` is `127.0.0.1:8080`. Re-running the same command resumes |
 | `planner-rl rescore FILE...` | Re-score saved outputs under the current scorer and data; no model calls |
 | `planner-rl compare FILE...` | Side-by-side results on their shared examples; flags anything at or above the 0.85 gate |
 | `planner-rl slurm render --name --run-id --out [--gpus --partition --time --hf-cache --nodelist] [--submit] -- CMD...` | Render (and, only with `--submit`, submit) an sbatch script |
+| `planner-rl slurm eval-baselines [--workdir --hf-cache --vllm-bin --vllm-arg ... --model ... --port --partition --time --gpus --nodelist] [--submit]` | Render `jobs/eval-baselines.sbatch` plus its driver: stock Qwen3.5 0.8B/2B/4B served by vLLM and scored with `eval`. Requeue-safe. See [the cluster checklist](../../docs/cluster-checklist.md) |
 | `planner-rl slurm smoke --run-id ID` | Toy checkpoint/resume job |
 | `planner-rl slurm stage --src --dst` / `prefetch REPO --cache DIR` | HF cache staging |
 | `planner-rl slurm env-check` | Versions of torch/CUDA/vLLM/etc. and GPUs on this node |

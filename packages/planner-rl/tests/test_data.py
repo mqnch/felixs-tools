@@ -295,7 +295,7 @@ class _FakeMessages:
 
 def _request() -> AuthorRequest:
     return AuthorRequest(
-        dataset="hdfs", plan_json="{}", reference_now=None, sample_rows=[], template_texts={}, groups=[]
+        dataset="hdfs", plan_json="{}", reference_now=None, template_texts={}, groups=[]
     )
 
 
@@ -317,7 +317,7 @@ def test_prompt_spells_out_locations_and_window_kinds():
     }
     request = AuthorRequest(
         dataset="openstack", plan_json=json.dumps(plan), reference_now=None,
-        sample_rows=[], template_texts={}, groups=[],
+        template_texts={}, groups=[],
     )
     prompt = render_user_prompt(request)
     assert "- component nova.compute.manager in file nova-compute.log" in prompt
@@ -327,7 +327,7 @@ def test_prompt_spells_out_locations_and_window_kinds():
 
 def test_prompt_hides_aggregate_group_keys():
     request = AuthorRequest(
-        dataset="bgl", plan_json='{"queries": []}', reference_now=None, sample_rows=[], template_texts={},
+        dataset="bgl", plan_json='{"queries": []}', reference_now=None, template_texts={},
         groups=[{"key": {"location_key": "KERNEL:BGL.log"}, "count": 56}],
     )
     prompt = render_user_prompt(request)

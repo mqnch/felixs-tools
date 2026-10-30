@@ -66,6 +66,8 @@ These predate this directory and are documented inline in [../sourceoftruth.md](
 | [0018](0018-eval-scoring-and-reward-combination.md) | Scoring: binary format; row set-F1 and group multiset-F1 averaged as components | 2026-10-30 | Accepted |
 | [0019](0019-qwen-9b-upper-bound-for-the-gate.md) | Gate runs on stock Qwen3.5-9B as an upper bound; stock 2B moves to the cluster | 2026-10-30 | Accepted |
 | [0020](0020-repair-time-windows-in-place.md) | Absolute time windows are whole minutes; existing dataset repaired in place, not regenerated | 2026-10-30 | Accepted |
+| [0021](0021-stock-baselines-one-sequential-job-vllm-own-venv.md) | Stock baselines run as one sequential single-GPU job; vLLM in its own venv | 2026-10-30 | Accepted |
+| [0022](0022-reauthor-questions-that-describe-unfiltered-lines.md) | Author sees no sample lines; questions describing them re-authored in place; near-dup counts numbers | 2026-10-30 | Accepted |
 
 ## Template
 
