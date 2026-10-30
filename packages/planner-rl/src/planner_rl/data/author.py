@@ -15,8 +15,6 @@ from __future__ import annotations
 import json
 import os
 import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -24,6 +22,7 @@ from common import MAX_LIMIT
 from pydantic import BaseModel, Field
 
 from planner_rl.data.corpus import AnchorRow
+from planner_rl.http import NETWORK_ERROR, post_json
 
 PROMPT_VERSION = "q-2026-10-30.3"
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -33,8 +32,6 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 # Bad key, no credit, no access: every later call fails the same way, so these
 # abort the run instead of being counted as one example's rejection.
 FATAL_STATUSES = frozenset({401, 402, 403})
-# Pseudo-status for a request that never got an HTTP response.
-NETWORK_ERROR = 0
 
 SYSTEM_PROMPT = """\
 You write realistic search questions for a log-search benchmark.
@@ -218,45 +215,6 @@ class AnthropicAuthor:
         return AuthorResult(question=parsed.question.strip(), model=self.model)
 
 
-REQUEST_DEADLINE_S = 90
-
-
-def _read_with_deadline(resp, deadline: float) -> bytes:
-    """Read the whole body, giving up at ``deadline`` (a ``time.monotonic()`` value).
-
-    OpenRouter writes keep-alive whitespace while an upstream provider works, so
-    the socket timeout never fires on a request whose provider has hung: each
-    keep-alive byte resets it. Only a deadline over the whole read catches that.
-    """
-    chunks = []
-    while True:
-        if time.monotonic() > deadline:
-            raise TimeoutError(f"no complete response within {REQUEST_DEADLINE_S}s")
-        chunk = resp.read1(65536)
-        if not chunk:
-            return b"".join(chunks)
-        chunks.append(chunk)
-
-
-def _post_json(url: str, headers: dict[str, str], body: dict) -> tuple[int, dict]:
-    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers, method="POST")
-    deadline = time.monotonic() + REQUEST_DEADLINE_S
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return resp.status, json.loads(_read_with_deadline(resp, deadline))
-    except urllib.error.HTTPError as exc:
-        try:
-            payload = json.loads(exc.read())
-        except ValueError:
-            payload = {}
-        return exc.code, payload
-    except (urllib.error.URLError, TimeoutError, ConnectionError, ValueError) as exc:
-        # No usable HTTP response: a timeout, a dropped connection or a body that
-        # is not JSON. Retryable, like a 5xx; uncaught, one of these killed all
-        # three 20k runs at once.
-        return NETWORK_ERROR, {"error": repr(exc)}
-
-
 class OpenRouterAuthor:
     """Authors questions through OpenRouter's OpenAI-compatible API (decision 0016).
 
@@ -269,7 +227,7 @@ class OpenRouterAuthor:
         model: str = DEFAULT_OPENROUTER_MODEL,
         *,
         api_key: str | None = None,
-        post=_post_json,
+        post=post_json,
         max_retries: int = 8,
         sleep=time.sleep,
     ) -> None:

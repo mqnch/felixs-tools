@@ -1,4 +1,4 @@
-"""`planner-rl` CLI: dataset generation and audit (slice 004), SLURM scaffold (slice 006)."""
+"""`planner-rl` CLI: dataset generation and audit (slice 004), eval (slice 005), SLURM scaffold (slice 006)."""
 
 from __future__ import annotations
 
@@ -97,6 +97,98 @@ def audit_data(
             "(decision 0004) - add a filtering pass before training on this data"
         )
         raise typer.Exit(1)
+
+
+@app.command("repair-data")
+def repair_data(data_dirs: list[Path] = typer.Argument(..., exists=True, file_okay=False)) -> None:
+    """Floor absolute time windows to the minute where the question states none (decision 0020)."""
+    from planner_rl.data.repair import floor_time_windows
+
+    for data_dir in data_dirs:
+        typer.echo(f"{data_dir}:")
+        for split, counts in floor_time_windows(data_dir).items():
+            strata = counts.pop("strata")
+            typer.echo(f"  {split}: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
+            typer.echo(f"    strata: {json.dumps(strata)}")
+
+
+# --- slice 005: eval ------------------------------------------------------------
+
+
+@app.command("eval")
+def eval_cmd(
+    data: list[Path] = typer.Option(..., "--data", exists=True, file_okay=False, help="gen-data output dir; repeat per corpus"),
+    model: str = typer.Option(..., "--model", help="Model name as the server knows it"),
+    out: Path = typer.Option(..., "--out", help="Results JSON"),
+    split: str = typer.Option("test", "--split"),
+    base_url: str | None = typer.Option(None, "--base-url", help="OpenAI-compatible endpoint; default OpenRouter, or --local"),
+    local: bool = typer.Option(False, "--local", help="Use a local mlx_lm.server / vLLM at 127.0.0.1:8080"),
+    per_corpus: int | None = typer.Option(None, "--per-corpus", help="Seeded sample of N examples per corpus"),
+    seed: int | None = typer.Option(None, "--seed"),
+    concurrency: int = typer.Option(1, "--concurrency", min=1),
+    thinking: bool = typer.Option(False, "--thinking", help="Let the model reason before answering"),
+    effort: str | None = typer.Option(None, "--reasoning-effort", help="low | medium | high; implies --thinking"),
+    max_tokens: int = typer.Option(1024, "--max-tokens"),
+) -> None:
+    """Score a planner on a dataset split by executing its plans."""
+    from planner_rl.eval.backend import LOCAL_BASE_URL, OPENROUTER_BASE_URL, ChatBackend
+    from planner_rl.eval.harness import DEFAULT_SEED, run_eval
+    from planner_rl.eval.report import table
+
+    backend = ChatBackend(
+        model,
+        base_url=base_url or (LOCAL_BASE_URL if local else OPENROUTER_BASE_URL),
+        thinking=thinking,
+        effort=effort,
+        max_tokens=max_tokens,
+    )
+    last = [0]
+
+    def progress(done: int, total: int) -> None:
+        if done == total or done - last[0] >= max(1, total // 20):
+            last[0] = done
+            typer.echo(f"  {done}/{total}")
+
+    results = run_eval(
+        data,
+        split=split,
+        backend=backend,
+        out=out,
+        per_corpus=per_corpus,
+        seed=seed if seed is not None else DEFAULT_SEED,
+        concurrency=concurrency,
+        progress=progress,
+    )
+    typer.echo(table([results]))
+    typer.echo(f"results: {out}")
+
+
+@app.command("rescore")
+def rescore_cmd(results: list[Path] = typer.Argument(..., exists=True, dir_okay=False)) -> None:
+    """Re-score saved model outputs under the current scorer. Makes no model calls."""
+    from planner_rl.eval.harness import rescore
+
+    for path in results:
+        summary = rescore(path)["summary"]["all"]
+        typer.echo(f"{path}: answer {summary['answer']:.3f} (n={summary['n']})")
+
+
+@app.command("compare")
+def compare_cmd(results: list[Path] = typer.Argument(..., exists=True, dir_okay=False)) -> None:
+    """Side-by-side table of results files, plus the slice-005 difficulty gate."""
+    from planner_rl.eval.report import GATE_THRESHOLD, load, over_gate, table
+
+    try:
+        loaded = load(results)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(table(loaded))
+    hot = over_gate(loaded)
+    if hot:
+        typer.echo(
+            f"\nAt or above the {GATE_THRESHOLD:.2f} gate: {', '.join(hot)}. If any of these is a stock "
+            "model, the task is too easy for RL to show a curve: harden the DSL (slice 002) before training."
+        )
 
 
 # --- slice 006: SLURM scaffold --------------------------------------------------

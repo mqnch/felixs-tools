@@ -440,20 +440,20 @@ def test_openrouter_retries_network_errors_then_succeeds():
 def test_post_json_turns_a_read_timeout_into_a_retryable_status(monkeypatch):
     import urllib.request
 
-    from planner_rl.data import author as author_mod
+    from planner_rl import http
 
     def _timeout(*_args, **_kwargs):
         raise TimeoutError("The read operation timed out")
 
     monkeypatch.setattr(urllib.request, "urlopen", _timeout)
-    status, payload = author_mod._post_json("https://x", {}, {})
-    assert status == author_mod.NETWORK_ERROR and "timed out" in payload["error"]
+    status, payload = http.post_json("https://x", {}, {})
+    assert status == http.NETWORK_ERROR and "timed out" in payload["error"]
 
 
 def test_read_gives_up_on_endless_keepalive_whitespace():
     import time
 
-    from planner_rl.data import author as author_mod
+    from planner_rl import http
 
     class _KeepAlive:
         def read1(self, _n):
@@ -461,7 +461,7 @@ def test_read_gives_up_on_endless_keepalive_whitespace():
             return b"\n"
 
     with pytest.raises(TimeoutError):
-        author_mod._read_with_deadline(_KeepAlive(), time.monotonic() + 0.05)
+        http.read_with_deadline(_KeepAlive(), time.monotonic() + 0.05)
 
 
 def test_openrouter_refuses_floating_aliases():

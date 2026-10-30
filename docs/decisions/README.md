@@ -62,6 +62,10 @@ These predate this directory and are documented inline in [../sourceoftruth.md](
 | [0014](0014-question-authoring-bypasses-router.md) | Dataset question authoring calls the Anthropic SDK directly, not Router | 2026-10-27 | Accepted |
 | [0015](0015-fold-bgl-severities-into-the-dsl-enum.md) | BGL's SEVERE/FAILURE fold to ERROR/FATAL at ingest; raw level kept in `extra` | 2026-10-30 | Accepted |
 | [0016](0016-openrouter-as-a-second-authoring-provider.md) | OpenRouter as a second direct authoring provider; 401/402/403 abort the run | 2026-10-30 | Accepted |
+| [0017](0017-planner-prompt-carries-a-corpus-card.md) | The evaluated planner sees a corpus card (templates, severities, components, files, time span) | 2026-10-30 | Accepted |
+| [0018](0018-eval-scoring-and-reward-combination.md) | Scoring: binary format; row set-F1 and group multiset-F1 averaged as components | 2026-10-30 | Accepted |
+| [0019](0019-qwen-9b-upper-bound-for-the-gate.md) | Gate runs on stock Qwen3.5-9B as an upper bound; stock 2B moves to the cluster | 2026-10-30 | Accepted |
+| [0020](0020-repair-time-windows-in-place.md) | Absolute time windows are whole minutes; existing dataset repaired in place, not regenerated | 2026-10-30 | Accepted |
 
 ## Template
 

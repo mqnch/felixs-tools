@@ -91,3 +91,10 @@ Prompt `q-2026-10-30.3`, `anthropic/claude-haiku-5.5` via OpenRouter, ~$7.75 (ab
 | OpenStack-20k | 1951/4000 | 330/500 | 248/500 | conjunction 55, negation 64; test has 0 conjunction |
 
 BGL and OpenStack hit the attempt cap. The main losses were `truncated_rows`, `too_broad` and `noop_conjunct`. Only Hadoop is balanced across strata. Conjunction and negation scores on BGL and OpenStack test sets will be too noisy to report alone in slice 005.
+
+### Repair (2026-10-30)
+
+Slice 005's eval found that absolute time windows were drawn to the second while questions state minutes. That affected 10–25% of examples per corpus. The sampler now draws whole minutes, and the full datasets were repaired in place with `planner-rl repair-data` ([0020](../decisions/0020-repair-time-windows-in-place.md)):
+- 2,446 examples floored, of which 729 got new gold.
+- 21 dropped.
+- Train now holds 6,388 Hadoop, 3,471 BGL and 1,949 OpenStack examples.

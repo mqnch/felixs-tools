@@ -63,3 +63,26 @@ stale per-row templates; anything else reading log_entries.template has the same
 ("KERNEL -> 56"), and in 6 of 34 BGL audit rows it turned them into filters ("how many
 KERNEL lines..."), despite an explicit rule against exactly that. Prompt rules lost to
 visible data twice today (limit/order, then group keys); hiding the data fixed both.
+
+2026-10-30: first Sonnet 5.5 eval returned HTTP 400 on all 300 calls ("Reasoning is mandatory
+for this endpoint") and the harness scored them as 300 zeros in seconds. Now: 5 consecutive
+call errors abort the run, failed calls are retried on resume, and `--reasoning-effort low`
+is the frontier setting.
+
+2026-10-30: Sonnet eval cost $0.018/call because the Anthropic cache breakpoint sat on the
+system prompt, which is below the 1024-token cache minimum. The corpus card (the big part)
+was uncached. Breakpoint moved after the card; text unchanged.
+
+2026-10-30: topping up the OpenRouter balance did not unblock eval; the key has its own
+$10 lifetime limit, separate from the balance. Both runs aborted on 403 (as designed) and
+resumed from their partial files.
+
+2026-10-30: the first 15 eval examples surfaced label errors the audit passed. A question
+reading as AND had an OR gold plan; "07:17 to 07:17 on Dec 2" had a Dec 1 to Dec 2 gold
+window. Time questions also round to the minute while gold windows are to the second.
+The audit's 99% answerable is optimistic; see slice 005 for the measured noise rate.
+
+2026-10-30: the first scorer counted 4 correct Sonnet answers as 0. "How many lines did X
+write" was answered with a plain total, while gold grouped by X's own location key. It
+also counted 4 self-corrected replies ("Correction: ...") as invalid. Found only by reading
+every failure; scorer v2 fixes both, and `rescore` re-applied it for free.

@@ -152,7 +152,9 @@ class PlanSampler:
             amount = hours if unit == "h" else int(window.total_seconds() // 60)
             return TimeRangeNode(since=f"-{amount}{unit}")
         offset = window * self.rng.random()
-        since = (stamp - offset).replace(microsecond=0)
+        # Whole minutes: authors write "17:45", and a gold window starting at
+        # 17:45:24 made ~20% of time questions unanswerable (decision 0020).
+        since = (stamp - offset).replace(second=0, microsecond=0)
         until = since + window
         return TimeRangeNode(since=since.isoformat(), until=until.isoformat())
 
